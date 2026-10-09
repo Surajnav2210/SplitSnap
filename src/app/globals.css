@@ -1,141 +1,171 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 /* ---------------------------------------------------------------------------
-   SplitSnap design tokens. Light by default, dark via prefers-color-scheme.
-   Use them through Tailwind utilities: bg-bg, bg-surface, bg-elevated,
-   border-line, text-fg, text-muted, bg-brand, text-brand, text-warning, ...
+   SplitSnap tokens: monochrome + one accent (docs/DESIGN.md, section 2).
+   Names follow shadcn/ui so generated components pick them up unchanged.
+   Light by default; dark follows the OS (prefers-color-scheme), so Tailwind's
+   default `dark:` media variant is used (no class-based theme switch).
    --------------------------------------------------------------------------- */
 :root {
-  --bg: #f6f7f5;
-  --surface: #ffffff;
-  --elevated: #ffffff;
-  --sunken: #eef0ec;
-  --line: #e3e6e1;
-  --line-strong: #cfd4cc;
-  --fg: #0d1210;
-  --muted: #5d6762;
-  --brand: #059669; /* emerald-600 */
-  --brand-strong: #047857;
-  --brand-fg: #ffffff;
-  --brand-soft: #d1fae5;
-  --brand-soft-fg: #065f46;
-  --warning: #b45309;
-  --warning-soft: #fef3c7;
-  --warning-line: #fbbf24;
-  --danger: #dc2626;
-  --danger-soft: #fee2e2;
-  --paper: #fffdf8;
-  --paper-fg: #1c1a17;
-  --shadow-card: 0 1px 2px rgb(16 24 20 / 0.04), 0 8px 24px -12px rgb(16 24 20 / 0.12);
-  --shadow-pop: 0 2px 4px rgb(16 24 20 / 0.06), 0 24px 48px -16px rgb(16 24 20 / 0.22);
+  --background: #fafaf9;
+  --foreground: #0c0a09;
+  --card: #ffffff;
+  --card-foreground: #0c0a09;
+  --popover: #ffffff;
+  --popover-foreground: #0c0a09;
+  --primary: #0c0a09;
+  --primary-foreground: #fafaf9;
+  --secondary: #f5f5f4;
+  --secondary-foreground: #0c0a09;
+  --muted: #f5f5f4; /* subtle fill */
+  --muted-foreground: #78716c;
+  --accent: #2563eb; /* electric blue: links, focus, active step, selected person */
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626;
+  --success: #16a34a; /* dots and icons */
+  --success-foreground: #15803d; /* text, 5.0:1 on white */
+  --warning: #d97706;
+  --warning-foreground: #b45309;
+  --border: #e7e5e4;
+  --input: #d6d3d1;
+  --ring: #2563eb;
+  --radius: 0.625rem;
+
+  /* Avatar tones: muted tints, initials >= 6:1 in both themes. */
+  --av-0-bg: #dde3ec; --av-0-fg: #344256;
+  --av-1-bg: #dce6dc; --av-1-fg: #33513a;
+  --av-2-bg: #eedfd8; --av-2-fg: #73402f;
+  --av-3-bg: #ece4d2; --av-3-fg: #62502b;
+  --av-4-bg: #e3e0ec; --av-4-fg: #4a4270;
+  --av-5-bg: #d9e7e6; --av-5-fg: #2d5856;
+  --av-6-bg: #eedee2; --av-6-fg: #723748;
+  --av-7-bg: #e3e3d5; --av-7-fg: #4f5430;
+
+  --shadow-float: 0 1px 2px rgb(12 10 9 / 0.04), 0 8px 24px -12px rgb(12 10 9 / 0.12);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #07090a;
-    --surface: #101413;
-    --elevated: #161b19;
-    --sunken: #0b0e0d;
-    --line: #232a27;
-    --line-strong: #333c38;
-    --fg: #ecf1ee;
-    --muted: #94a19a;
-    --brand: #34d399; /* emerald-400 */
-    --brand-strong: #6ee7b7;
-    --brand-fg: #03140d;
-    --brand-soft: rgb(52 211 153 / 0.14);
-    --brand-soft-fg: #6ee7b7;
+    --background: #0c0a09;
+    --foreground: #fafaf9;
+    --card: #171412;
+    --card-foreground: #fafaf9;
+    --popover: #1c1917;
+    --popover-foreground: #fafaf9;
+    --primary: #fafaf9;
+    --primary-foreground: #0c0a09;
+    --secondary: #24201e;
+    --secondary-foreground: #fafaf9;
+    --muted: #24201e;
+    --muted-foreground: #a8a29e;
+    --accent: #3b82f6;
+    --accent-foreground: #0c0a09;
+    --destructive: #f87171;
+    --success: #4ade80;
+    --success-foreground: #4ade80;
     --warning: #fbbf24;
-    --warning-soft: rgb(251 191 36 / 0.12);
-    --warning-line: rgb(251 191 36 / 0.45);
-    --danger: #f87171;
-    --danger-soft: rgb(248 113 113 / 0.12);
-    --paper: #f4f1ea;
-    --paper-fg: #1c1a17;
-    --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
-    --shadow-pop: 0 24px 48px -16px rgb(0 0 0 / 0.6);
+    --warning-foreground: #fbbf24;
+    --border: #292524;
+    --input: #44403c;
+    --ring: #3b82f6;
+
+    --av-0-bg: #27303c; --av-0-fg: #c2ccda;
+    --av-1-bg: #24302a; --av-1-fg: #bbd0bf;
+    --av-2-bg: #382823; --av-2-fg: #e0bcae;
+    --av-3-bg: #342e21; --av-3-fg: #d9c8a2;
+    --av-4-bg: #2c293a; --av-4-fg: #c9c2e0;
+    --av-5-bg: #203231; --av-5-fg: #afd0ce;
+    --av-6-bg: #372529; --av-6-fg: #e0b9c3;
+    --av-7-bg: #2d2e23; --av-7-fg: #cdcfae;
+
+    --shadow-float: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 12px 32px -12px rgb(0 0 0 / 0.7);
     color-scheme: dark;
   }
 }
 
 @theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-elevated: var(--elevated);
-  --color-sunken: var(--sunken);
-  --color-line: var(--line);
-  --color-line-strong: var(--line-strong);
-  --color-fg: var(--fg);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
-  --color-brand: var(--brand);
-  --color-brand-strong: var(--brand-strong);
-  --color-brand-fg: var(--brand-fg);
-  --color-brand-soft: var(--brand-soft);
-  --color-brand-soft-fg: var(--brand-soft-fg);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
-  --color-warning-soft: var(--warning-soft);
-  --color-warning-line: var(--warning-line);
-  --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
-  --color-paper: var(--paper);
-  --color-paper-fg: var(--paper-fg);
-  --shadow-card: var(--shadow-card);
-  --shadow-pop: var(--shadow-pop);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.2);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --shadow-float: var(--shadow-float);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-  --animate-step-in: step-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  --animate-pop: pop 180ms ease-out both;
   --animate-shimmer: shimmer 1.4s ease-in-out infinite;
-  --animate-scan: scan-line 1.8s ease-in-out infinite;
-  --animate-float: float 6s ease-in-out infinite;
+  --animate-scan: scan-line 2s ease-in-out infinite;
 }
 
-@keyframes step-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: none; }
-}
-@keyframes pop {
-  0% { transform: scale(0.85); }
-  60% { transform: scale(1.06); }
-  100% { transform: scale(1); }
-}
 @keyframes shimmer {
-  0%, 100% { opacity: 0.45; }
+  0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
 }
 @keyframes scan-line {
-  0% { top: 4%; }
+  0% { top: 6%; }
   50% { top: 92%; }
-  100% { top: 4%; }
-}
-@keyframes float {
-  0%, 100% { transform: translateY(0) rotate(-2deg); }
-  50% { transform: translateY(-8px) rotate(-2deg); }
+  100% { top: 6%; }
 }
 
-html {
-  scroll-behavior: smooth;
-  -webkit-tap-highlight-color: transparent;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 22%, transparent);
+  }
 }
 
-body {
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-sans);
-}
-
-:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-}
-
-/* Paper receipt: zigzag torn edges top and bottom. */
+/* Receipt: zigzag torn edges top and bottom, on the card surface. */
 .receipt-paper {
   --zig: 10px;
-  background: var(--paper);
-  color: var(--paper-fg);
+  background: var(--card);
+  color: var(--card-foreground);
   -webkit-mask:
     conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--zig) 51% repeat-x,
     conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / var(--zig) 51% repeat-x;
@@ -144,9 +174,14 @@ body {
     conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / var(--zig) 51% repeat-x;
 }
 
-/* Masks clip box-shadow, so paper gets its shadow from a wrapper. */
-.paper-shadow {
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.06)) drop-shadow(0 14px 22px rgb(16 24 20 / 0.16));
+/* Masks clip box-shadow and borders, so the paper's edge comes from a wrapper filter. */
+.paper-edge {
+  filter: drop-shadow(0 0 0.5px rgb(12 10 9 / 0.28)) drop-shadow(0 1px 2px rgb(12 10 9 / 0.05));
+}
+@media (prefers-color-scheme: dark) {
+  .paper-edge {
+    filter: drop-shadow(0 0 0.5px rgb(255 255 255 / 0.22));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

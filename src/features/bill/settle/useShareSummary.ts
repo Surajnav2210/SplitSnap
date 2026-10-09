@@ -16,14 +16,15 @@ function isAbort(err: unknown): boolean {
 export function useShareSummary() {
   const [status, setStatus] = useState<ShareStatus>({ kind: "idle" });
 
-  const share = useCallback(async (text: string) => {
+  /** Resolves to how the text was delivered, or "cancelled" if the user closed the share sheet. */
+  const share = useCallback(async (text: string): Promise<ShareStatus["kind"] | "cancelled"> => {
     if (typeof navigator.share === "function") {
       try {
         await navigator.share({ text });
         setStatus({ kind: "shared" });
-        return;
+        return "shared";
       } catch (err) {
-        if (isAbort(err)) return; // the user closed the share sheet on purpose
+        if (isAbort(err)) return "cancelled"; // the user closed the share sheet on purpose
         // Otherwise (e.g. not allowed in this context) fall through to the clipboard.
       }
     }
@@ -31,12 +32,13 @@ export function useShareSummary() {
       try {
         await navigator.clipboard.writeText(text);
         setStatus({ kind: "copied" });
-        return;
+        return "copied";
       } catch {
         // Clipboard blocked (permissions / insecure context): show the text instead.
       }
     }
     setStatus({ kind: "manual", text });
+    return "manual";
   }, []);
 
   const reset = useCallback(() => setStatus({ kind: "idle" }), []);

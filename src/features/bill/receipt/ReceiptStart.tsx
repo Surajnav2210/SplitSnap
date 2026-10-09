@@ -1,7 +1,7 @@
-import type { ChangeEvent } from "react";
-import { Button, buttonClass } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
-import { cx } from "@/components/ui/cx";
+import { useState, type ChangeEvent, type DragEvent } from "react";
+import { Camera, CircleAlert, Lock, PenLine, ReceiptText, Upload } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { ScanPhase } from "./useReceiptScan";
 
 function FileButton({
@@ -12,9 +12,9 @@ function FileButton({
   onFile,
 }: {
   label: string;
-  icon: "camera" | "image";
+  icon: "camera" | "upload";
   capture?: boolean;
-  variant: "primary" | "secondary";
+  variant: "default" | "outline";
   onFile: (file: File) => void;
 }) {
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
@@ -22,14 +22,15 @@ function FileButton({
     e.target.value = ""; // allow picking the same photo again
     if (file) onFile(file);
   }
+  const Icon = icon === "camera" ? Camera : Upload;
   return (
     <label
-      className={cx(
-        buttonClass(variant, "lg"),
-        "w-full cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand",
+      className={cn(
+        buttonVariants({ variant, size: "lg" }),
+        "w-full focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring",
       )}
     >
-      <Icon name={icon} className="h-5 w-5" />
+      <Icon aria-hidden="true" />
       {label}
       <input
         type="file"
@@ -55,14 +56,23 @@ export function ReceiptStart({
   onSample: () => void;
   onDismissError: () => void;
 }) {
+  const [dragging, setDragging] = useState(false);
+
+  function handleDrop(e: DragEvent<HTMLElement>) {
+    e.preventDefault();
+    setDragging(false);
+    const file = [...e.dataTransfer.files].find((f) => f.type.startsWith("image/"));
+    if (file) onFile(file);
+  }
+
   return (
     <div className="space-y-4">
       {phase.kind === "error" ? (
-        <div role="alert" className="flex gap-3 rounded-2xl border border-warning-line bg-warning-soft p-4 text-sm">
-          <Icon name="alert" className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+        <div role="alert" className="flex gap-3 rounded-xl border border-border bg-card p-4 text-sm">
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-fg">Couldn&apos;t scan that one</p>
-            <p className="mt-0.5 text-muted">{phase.message}</p>
+            <p className="font-medium text-foreground">Couldn&apos;t read that photo</p>
+            <p className="mt-0.5 text-muted-foreground">{phase.message}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button size="sm" onClick={onManual}>
                 Enter items manually
@@ -75,43 +85,51 @@ export function ReceiptStart({
         </div>
       ) : null}
 
-      <section className="relative overflow-hidden rounded-[28px] border border-line bg-surface p-6 shadow-card">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand/15 blur-3xl"
-        />
-        <div className="relative">
-          <div aria-hidden="true" className="paper-shadow mx-auto mb-5 w-24 rotate-[-4deg]">
-          <div className="receipt-paper flex h-28 flex-col gap-1.5 p-3">
-            <span className="h-1.5 w-10 rounded bg-paper-fg/70" />
-            <span className="mt-1 h-1 w-full rounded bg-paper-fg/20" />
-            <span className="h-1 w-4/5 rounded bg-paper-fg/20" />
-            <span className="h-1 w-full rounded bg-paper-fg/20" />
-            <span className="h-1 w-3/5 rounded bg-paper-fg/20" />
-            <span className="mt-auto h-1.5 w-full rounded bg-brand/70" />
-          </div>
-          </div>
-          <p className="text-center text-sm text-muted">
-            AI reads every line, so you don&apos;t have to type it.
-          </p>
-          <div className="mt-5 space-y-2.5">
-            <FileButton label="Scan receipt" icon="camera" capture variant="primary" onFile={onFile} />
-            <FileButton label="Upload from photos" icon="image" variant="secondary" onFile={onFile} />
-          </div>
-          <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-muted">
-            <Icon name="lock" className="h-3.5 w-3.5" />
-            Photos are read by Google Gemini to find items, then discarded.
-          </p>
+      <section
+        aria-labelledby="scan-heading"
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        className={cn(
+          "rounded-2xl border border-dashed bg-card px-5 py-8 text-center transition-colors sm:px-8",
+          dragging ? "border-accent" : "border-input",
+        )}
+      >
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full border border-border bg-background text-foreground">
+          <ReceiptText aria-hidden="true" className="size-5" strokeWidth={1.75} />
+        </span>
+        <h2 id="scan-heading" className="mt-4 text-lg font-semibold tracking-[-0.02em] text-foreground">
+          Scan the receipt
+        </h2>
+        <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
+          We&apos;ll read every line, plus tax and tip. <span className="hidden sm:inline">Or drop a photo here.</span>
+        </p>
+        <div className="mx-auto mt-6 grid max-w-sm gap-2.5">
+          <FileButton label="Take photo" icon="camera" capture variant="default" onFile={onFile} />
+          <FileButton label="Upload image" icon="upload" variant="outline" onFile={onFile} />
         </div>
+        <p className="mt-5 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+          <Lock aria-hidden="true" className="size-3" />
+          Read by Google Gemini, then discarded.
+        </p>
       </section>
 
+      <div className="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
+        <span className="h-px flex-1 bg-border" />
+        or
+        <span className="h-px flex-1 bg-border" />
+      </div>
+
       <div className="grid grid-cols-2 gap-2.5">
-        <Button variant="secondary" onClick={onManual} className="w-full">
-          <Icon name="pencil" className="h-4 w-4" />
-          Enter manually
+        <Button variant="outline" onClick={onManual} className="w-full">
+          <PenLine aria-hidden="true" />
+          Type it in
         </Button>
-        <Button variant="secondary" onClick={onSample} className="w-full">
-          <Icon name="sparkle" className="h-4 w-4" />
+        <Button variant="outline" onClick={onSample} className="w-full">
+          <ReceiptText aria-hidden="true" />
           Try a sample
         </Button>
       </div>

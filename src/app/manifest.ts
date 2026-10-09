@@ -9,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/split",
     scope: "/",
     display: "standalone",
-    background_color: "#f6f7f5",
-    theme_color: "#059669",
+    background_color: "#fafaf9",
+    theme_color: "#0c0a09",
     categories: ["finance", "food", "utilities"],
     icons: [
       { src: "/icon.svg", sizes: "any", type: "image/svg+xml" },

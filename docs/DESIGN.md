@@ -1,6 +1,6 @@
 # SplitSnap Design Brief
 
-Status: proposal, v1 (2026-10-09). Covers the visual system, components, motion, a blueprint for each page, and the libraries we recommend. Token names match `src/app/globals.css`, so most of section 2 is a value swap plus a few new tokens, not a rewrite.
+Status: v2 (2026-10-09). Color system replaced with the user-chosen monochrome + blue accent (section 2); the rest of the structure stands. Covers the visual system, components, motion, a blueprint for each page, and the libraries we recommend. Token names match `src/app/globals.css`, so most of section 2 is a value swap plus a few new tokens, not a rewrite.
 
 Diagnosis of "plain": the current UI is clean but flat. Every element has about the same visual weight. Nothing is big (money), nothing is bold (brand), nothing moves at the moments that matter (scan, claim, settle), and the landing page has no product imagery. Top consumer money apps fix this with four levers: **one loud brand color, huge tabular money figures, pill buttons on calm neutral surfaces, and small celebratory motion**. This brief applies those four levers.
 
@@ -9,7 +9,7 @@ Diagnosis of "plain": the current UI is clean but flat. Every element has about 
 ## 1. Design principles
 
 1. **The number is the hero.** Every screen has one dominant figure: the bill total, your share, or what each person owes. Show it big, in tabular figures, with smaller cents. This is the Cash App and Revolut home-screen pattern.
-2. **One color means "go".** Snap Mint fills only primary actions, selected states and success. Everything else is neutral. Payment-provider colors appear only as small marks, never as large fills.
+2. **Monochrome + one accent.** Ink-black primary actions on warm neutrals; electric blue only for focus, selection and links. Payment apps appear as outline buttons with their names, no brand colors or logos.
 3. **Thumb-first.** The primary action sits in a bottom bar within thumb reach. Tap targets are at least 44px. Editing happens in bottom sheets, not modals.
 4. **The receipt is real.** Extracted items are shown on a paper receipt (mono type, torn edges). People trust what looks like the thing they photographed.
 5. **Celebrate settling up.** A check draws itself, a little confetti falls, and the tone is friendly. Keep the delight short (under 1s) and skip it entirely under reduced motion.
@@ -18,54 +18,47 @@ Diagnosis of "plain": the current UI is clean but flat. Every element has about 
 
 ## 2. Brand
 
+> **Direction chosen by the user on 2026-10-09: Monochrome + one accent (Linear / Vercel / Mercury).** This replaces the earlier "Snap Mint" proposal. Wherever this doc still says "brand", read "primary" (near-black) for fills and "accent" (blue) for selection, focus and links.
+
 ### Name treatment
-- Wordmark: "Split" in `fg` weight 700 plus "Snap" in `brand-ink` weight 700. Geist Sans, tracking -0.03em, no space between the words.
-- Mark: a 28px rounded square (radius 8) filled with `brand`, holding a 16px lucide `ScanLine` or `Receipt` icon in `brand-fg`. The same mark serves as favicon, apple-icon and OG image.
+- Wordmark: "SplitSnap" in `foreground`, Geist Sans 600, tracking -0.03em.
+- Mark: a 24px rounded square (radius 7) filled with `foreground`, holding a receipt glyph split down the middle in `background`. It inverts in dark mode. The same glyph is the favicon, apple-icon and OG mark.
 
-### Color tokens (replace current values; names stay the same)
-Brand color **Snap Mint `#2ED47A`**. It is bright enough to be ownable among Venmo blue, PayPal navy and Cash App green, and it reads as "money / done". Because it is light, **text on a mint fill is dark ink, never white** (the Wise pattern: lime fill with dark green text).
-
-| Token | Light | Dark | Use / contrast (WCAG) |
+### Color tokens (`src/app/globals.css`, shadcn/ui token names)
+| Token | Light | Dark | Use / contrast (WCAG 2.x) |
 |---|---|---|---|
-| `--brand` | `#2ED47A` | `#2ED47A` | Primary fills, selected chips, progress. Not for text on light backgrounds (1.9:1 on white) |
-| `--brand-strong` (hover) | `#25C06C` | `#5BE39A` | Hover/pressed fill |
-| `--brand-fg` | `#04210F` | `#04210F` | Text/icons on brand fill: **8.8:1** |
-| `--brand-ink` (NEW) | `#0B7A43` | `#5BE39A` | Brand-colored text/links. 5.4:1 on white, 12:1 on `#0B0D0C` |
-| `--brand-soft` | `#DDF8E8` | `rgb(46 212 122 / 0.14)` | Selected row background, badges |
-| `--brand-soft-fg` | `#075E33` | `#7EEBB0` | Text on brand-soft |
-| `--bg` | `#F7F8F6` | `#0B0D0C` | Page |
-| `--surface` | `#FFFFFF` | `#121614` | Cards |
-| `--elevated` | `#FFFFFF` | `#181D1A` | Sheets, popovers, bottom bar |
-| `--sunken` | `#EEF1ED` | `#080A09` | Inputs, segmented-control track |
-| `--line` | `#E3E7E2` | `#242B27` | Hairlines, card borders |
-| `--line-strong` | `#CDD3CC` | `#343D38` | Input borders, dividers in dense lists |
-| `--fg` | `#0F1411` | `#EEF2EF` | Body text: 17:1 in both modes |
-| `--muted` | `#5E6862` | `#9AA59F` | Secondary text: 5.4:1 on bg (light), 7.2:1 on surface (dark) |
-| `--success` (NEW) | `#15803D` | `#4ADE80` | "Paid", reconciled. 5.0:1 / 10.5:1 |
-| `--warning` | `#B45309` | `#FBBF24` | Low-confidence items, mismatch. 5.0:1 / 10.9:1 |
-| `--danger` | `#DC2626` | `#F87171` | Errors, delete. 4.8:1 / 6.6:1 |
-| `--paper` / `--paper-fg` | `#FFFDF8` / `#1C1A17` | `#F4F1EA` / `#1C1A17` | Receipt paper stays light in dark mode (deliberate) |
+| `--background` | `#FAFAF9` | `#0C0A09` | Page |
+| `--card` / `--popover` | `#FFFFFF` / `#FFFFFF` | `#171412` / `#1C1917` | Surfaces; popover = sheets, toasts |
+| `--foreground` | `#0C0A09` | `#FAFAF9` | Text: 18.9:1 both modes |
+| `--muted-foreground` | `#78716C` | `#A8A29E` | Secondary text: 4.6:1 on bg, 4.8:1 on card (light); 7.3:1 on card (dark). Only 4.4:1 on `--muted`, so no small muted text on the subtle fill |
+| `--muted` / `--secondary` | `#F5F5F4` | `#24201E` | Subtle fill, segmented track, hover |
+| `--border` | `#E7E5E4` | `#292524` | Hairlines, card borders |
+| `--input` | `#D6D3D1` | `#44403C` | Input and outline-button borders |
+| `--primary` / `--primary-foreground` | `#0C0A09` / `#FAFAF9` | `#FAFAF9` / `#0C0A09` | Primary buttons are black pills (white in dark) |
+| `--accent` = `--ring` | `#2563EB` | `#3B82F6` | Used sparingly: links, focus ring, active progress step, the selected "tapping as" person, key totals. 5.2:1 on white, 5.0:1 on dark card. Never a button fill |
+| `--success` / `--success-foreground` | `#16A34A` / `#15803D` | `#4ADE80` | Dots/icons / text (5.0:1). Semantic only |
+| `--warning` / `--warning-foreground` | `#D97706` / `#B45309` | `#FBBF24` | Unclaimed and mismatch dots / text (5.0:1) |
+| `--destructive` | `#DC2626` | `#F87171` | Errors, delete (4.8:1 / 6.6:1) |
 
 Rules:
-- Neutrals are slightly green-tinted, so they sit with the mint instead of fighting it. Never use pure `#000` or `#FFF` for page backgrounds.
-- Soft semantic backgrounds: `--success-soft` `#DCFCE7` / `rgb(74 222 128 / .12)`, and the existing `warning-soft` and `danger-soft` stay.
-- Color never carries meaning alone. Every state pairs color with an icon (check, alert-triangle) or text.
+- Flat surfaces and 1px borders. No gradients, glows, glass or colored shadows. One subtle neutral shadow (`--shadow-float`) only on floating things: sheets, toasts, sticky bars, the hero device frame.
+- Accent appears at most a few times per screen. Semantic colors appear as small dots/icons plus words, never as large fills.
+- The receipt uses the card color with torn edges (`.receipt-paper` + `.paper-edge`), in both themes.
+- Color never carries meaning alone: every state pairs color with an icon or text.
 
-### Avatar palette (8 tones, tint style, works in both modes)
-Assign by `joinOrder`, as the current `avatarTone` does. Light uses a 100-level background with 800-level text. Dark uses a deep tinted background with 300-level text. All pairs are 6.4:1 or better.
+### Avatar palette (8 muted tones, both themes)
+Assigned by join order (`avatarTone`). CSS variables `--av-{0..7}-bg` / `--av-{0..7}-fg`. Initials contrast is 6.1:1 or better in light and 8.0:1 or better in dark.
 
-| # | Name | Light bg / text | Dark bg / text | Dot (stacks, chips) |
-|---|---|---|---|---|
-| 1 | Rose | `#FFE4E6` / `#9F1239` | `#3B1A20` / `#FDA4AF` | `#F43F5E` |
-| 2 | Orange | `#FFEDD5` / `#9A3412` | `#3A2214` / `#FDBA74` | `#F97316` |
-| 3 | Amber | `#FEF3C7` / `#92400E` | `#3A2D10` / `#FCD34D` | `#F59E0B` |
-| 4 | Lime | `#ECFCCB` / `#3F6212` | `#26330F` / `#BEF264` | `#84CC16` |
-| 5 | Teal | `#CCFBF1` / `#115E59` | `#0F302C` / `#5EEAD4` | `#14B8A6` |
-| 6 | Sky | `#E0F2FE` / `#075985` | `#0E2A3A` / `#7DD3FC` | `#0EA5E9` |
-| 7 | Indigo | `#E0E7FF` / `#3730A3` | `#1F2245` / `#A5B4FC` | `#6366F1` |
-| 8 | Fuchsia | `#FAE8FF` / `#86198F` | `#341A3A` / `#F0ABFC` | `#D946EF` |
-
-Implement as CSS variables `--av-{n}-bg`, `--av-{n}-fg`, `--av-{n}-dot` with a dark override, and expose them via `@theme inline`. Emerald is left out on purpose so no avatar looks like brand or success.
+| # | Name | Light bg / fg | Dark bg / fg |
+|---|---|---|---|
+| 0 | Slate | `#DDE3EC` / `#344256` | `#27303C` / `#C2CCDA` |
+| 1 | Sage | `#DCE6DC` / `#33513A` | `#24302A` / `#BBD0BF` |
+| 2 | Clay | `#EEDFD8` / `#73402F` | `#382823` / `#E0BCAE` |
+| 3 | Sand | `#ECE4D2` / `#62502B` | `#342E21` / `#D9C8A2` |
+| 4 | Lavender | `#E3E0EC` / `#4A4270` | `#2C293A` / `#C9C2E0` |
+| 5 | Teal | `#D9E7E6` / `#2D5856` | `#203231` / `#AFD0CE` |
+| 6 | Rose | `#EEDEE2` / `#723748` | `#372529` / `#E0B9C3` |
+| 7 | Olive | `#E3E3D5` / `#4F5430` | `#2D2E23` / `#CDCFAE` |
 
 ---
 
@@ -135,7 +128,7 @@ Press state: `active:scale-[0.97]`, 120ms. Disabled: 40% opacity, no pointer. Lo
 
 ### Chips / toggles (claiming)
 - Person chip: 36px tall pill, avatar xs (20px) + name 14px/500. **Off:** `bg-surface border-line text-fg`. **On:** background `--av-n-bg`, 1.5px border in `--av-n-fg`, text `--av-n-fg`, leading lucide `Check` 14px. `role="checkbox"` + `aria-checked`.
-- "Split evenly" / "Everyone" chip: brand-soft when on.
+- "Split evenly" / "Everyone" chip: foreground border when on.
 - Segmented control (tip %: 15 / 18 / 20 / Custom): track `bg-sunken rounded-full p-1`, the selected segment is `bg-surface shadow-card` with a sliding indicator (motion `layoutId`).
 
 ### Inputs
@@ -174,7 +167,7 @@ Keep `.receipt-paper` + `.paper-shadow`. Inside: merchant name centered (mono 13
 Rows are 44px min height. Dotted leaders use a flex spacer with `border-b border-dotted`. Price is right-aligned and tabular. "+ Add item" is a ghost row at the bottom.
 
 ### Totals card (Settle)
-At the top, a muted caption "TOTAL BILL" with MoneyText hero beneath it and a meta line "4 people · tax & tip split proportionally". Below that, a per-person list: avatar md | name (16/500) + "3 items" muted | amount (md, right). Host row badge: `Host · paid the bill` (brand-soft). Each non-host row expands (chevron) into item breakdown + tax/tip lines, then shows a pay-link row: three secondary sm buttons, each with a 16px provider glyph in its color (Venmo `#008CFF`, PayPal `#003087`, Cash App `#00D64F`) and label text in `fg`, plus a "Mark paid" toggle.
+At the top, a muted caption "TOTAL BILL" with MoneyText hero beneath it and a meta line "4 people · tax & tip split proportionally". Below that, a per-person list: avatar md | name (16/500) + "3 items" muted | amount (md, right). Host row badge: `Host · paid the bill` (outline badge). Each non-host row expands (chevron) into item breakdown + tax/tip lines, then shows a pay-link row: three outline sm pill buttons labelled with the app name (no brand colors or logos), plus a "Mark paid" toggle.
 
 ### Empty states
 Centered in the card: a 48px circle `bg-sunken` with a 24px lucide icon in muted, then h3 (one line) and one muted sentence, then one button. Examples:
@@ -212,12 +205,12 @@ Reduced motion: wrap the app in `<MotionConfig reducedMotion="user">`. Keep the 
 ### Landing `/` (section order)
 1. **Header** (sticky, 64px, `bg-bg/80 backdrop-blur`, border appears after 8px of scroll): logo | "How it works", "FAQ" (hidden <640px) | primary sm "Split a bill".
 2. **Hero** (2-col ≥1024px, stacked on mobile, text first):
-   - Eyebrow chip (brand-soft): "Free · No sign-up · No app to download"
+   - Eyebrow chip (outline badge): "Free · No sign-up · No app to download"
    - H1 display: **"Snap the receipt. Everyone pays their share."**
    - Sub (18px muted, max 36ch): "AI reads every item. Friends tap what they had. Tax and tip split fairly, and everyone pays you back on Venmo, PayPal or Cash App."
    - CTAs: primary lg "Split a bill, free →" + secondary lg "Try the demo"
    - Under the CTAs: muted 13px "Pay back with" + three small provider glyphs.
-   - Right/below: `PhoneMockup` showing the **Claim** screen (real UI, not a drawing), tilted −4°, with two floating cards over the edges ("Maya owes **$23.40**" with avatar; "✓ Matches receipt"). Behind it, a soft radial brand glow at 15% opacity. No other gradients.
+   - Right/below: `PhoneMockup` showing the **Claim** screen (real UI, not a drawing), tilted −4°, with two floating cards over the edges ("Maya owes **$23.40**" with avatar; "✓ Matches receipt"). No glow, no gradients.
 3. **How it works:** 3 numbered cards in a row (stacked on mobile): Snap (camera icon) / Tap (hand-tap) / Get paid (banknote). Each has a one-line title, one sentence, and a cropped real-UI snippet.
 4. **Feature bento** (6 cells, 3-col grid ≥1024px, 2-col tablet, 1-col mobile; `rounded-3xl`, mixed spans):
    - Large (2×1): "AI reads the whole receipt": receipt-paper snippet with the scan line.
@@ -226,7 +219,7 @@ Reduced motion: wrap the app in `<MotionConfig reducedMotion="user">`. Keep the 
    - "Pay links that prefill the amount": the three provider buttons.
    - "Shared items, handled": "Nachos ÷ 3 = $4.33 each".
    - Large (2×1): "No accounts. No app." Copy should match the privacy policy exactly. Have the owner confirm the claims.
-5. **Comparison table:** SplitSnap vs "Calculator + group chat" vs "Typical split apps". Rows: itemized by person, AI receipt scan, tax/tip proportional, no sign-up, free, pay links. Use check/dash icons, and put the SplitSnap column on a brand-soft background. **Don't name competitors or state their pricing unless verified at publish time.**
+5. **Comparison table:** SplitSnap vs "Calculator + group chat" vs "Typical split apps". Rows: itemized by person, AI receipt scan, tax/tip proportional, no sign-up, free, pay links. Use check/dash icons, and set the SplitSnap column in foreground text with checks (no colored fill). **Don't name competitors or state their pricing unless verified at publish time.**
 6. **Social proof, honest version:** until real testimonials exist, use "product proof", not fake logos or quotes. That means an embedded interactive mini demo (claim 3 items, see totals update) or a "Real receipt, real math" worked example. Add real quotes and counts only once you have them.
 7. **FAQ:** existing `Faq` component, styled as an accordion (lucide `Plus` rotating to `X`), max-w 720.
 8. **Final CTA band:** `rounded-3xl bg-fg text-bg` (inverted), H2 "Dinner's over. Settle up in a minute.", primary button.
@@ -298,7 +291,7 @@ Premium vs template-y: one accent color only, real product UI in imagery (never 
 ```
 
 ### Privacy / Terms
-Prose column `max-w-[42rem]`, body 17/28px, h2 22px with 48px top margin. At the top: a "Plain-English summary" card (brand-soft, 3–5 bullets) and a muted "Last updated: <date>". ≥1024px: sticky left table of contents (13px, active section in brand-ink). Links are underlined, `decoration-line-strong`, turning brand-ink on hover.
+Prose column `max-w-[42rem]`, body 17/28px, h2 22px with 48px top margin. At the top: a "Plain-English summary" card (bordered card, 3–5 bullets) and a muted "Last updated: <date>". ≥1024px: sticky left table of contents (13px, active section in accent). Links are accent, underlined.
 
 ### 404
 Centered receipt-paper card, mono:

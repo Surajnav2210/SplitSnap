@@ -13,7 +13,6 @@ export const SITE_TAGLINE = "Split the bill before the waiter comes back";
 export const SITE_DESCRIPTION =
   "Free receipt scanner and bill splitter. Snap the receipt, everyone taps what they had, and tax and tip are split fairly. Itemized, no sign-up, with one-tap Venmo, PayPal and Cash App links.";
 
-export const BRAND_GREEN = "#059669";
 export const CONTACT_EMAIL = "hello@splitsnap.example";
 
 /** The generated social card (src/app/opengraph-image.tsx). */

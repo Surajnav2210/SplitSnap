@@ -1,25 +1,34 @@
 import Link from "next/link";
-import { ButtonLink } from "@/components/ui/Button";
-import { Logo } from "@/components/ui/Logo";
+import { buttonVariants } from "@/components/ui/button";
+import { Logo } from "@/components/ui/logo";
+import { cn } from "@/lib/utils";
+
+const NAV = [
+  { href: "/#how-it-works", label: "How it works" },
+  { href: "/#faq", label: "FAQ" },
+];
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-30 border-b border-line/70 bg-bg/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-6 px-5">
-        <Link href="/" aria-label="SplitSnap home" className="rounded-xl">
+    <header className="sticky top-0 z-40 border-b border-border bg-background">
+      <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-8 px-5 sm:px-6">
+        <Link href="/" aria-label="SplitSnap home" className="rounded-md">
           <Logo />
         </Link>
-        <nav aria-label="Main" className="ml-auto flex items-center gap-1">
-          <Link href="/#how-it-works" className="hidden min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted hover:text-fg sm:inline-flex">
-            How it works
-          </Link>
-          <Link href="/#faq" className="hidden min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted hover:text-fg sm:inline-flex">
-            FAQ
-          </Link>
-          <ButtonLink href="/split" size="sm" className="ml-2">
-            Split a bill
-          </ButtonLink>
+        <nav aria-label="Main" className="hidden items-center gap-1 sm:flex">
+          {NAV.map((n) => (
+            <Link
+              key={n.href}
+              href={n.href}
+              className="inline-flex h-9 items-center rounded-full px-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {n.label}
+            </Link>
+          ))}
         </nav>
+        <Link href="/split" className={cn(buttonVariants({ size: "sm" }), "ml-auto")}>
+          Split a bill
+        </Link>
       </div>
     </header>
   );

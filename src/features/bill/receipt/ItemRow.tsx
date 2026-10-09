@@ -1,68 +1,49 @@
-import { useState, type Dispatch, type FormEvent } from "react";
+import { useId, useState, type Dispatch, type FormEvent } from "react";
+import { ChevronRight, Plus, Scissors, Trash2 } from "lucide-react";
 import { parseDollars } from "@/core/parse";
-import { Icon } from "@/components/ui/Icon";
-import { MoneyText } from "@/components/ui/MoneyText";
-import { FieldError, centsToInput, inputClass } from "../fields";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { MoneyText } from "@/components/ui/money-text";
+import { FieldError, centsToInput } from "../fields";
 import { MAX_ITEM_NAME_LENGTH, MAX_UNITS, type BillAction, type BillItem } from "../state";
 
-const iconButton =
-  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-paper-fg/60 hover:bg-paper-fg/5 hover:text-paper-fg";
-const paperInput = `${inputClass} border-paper-fg/20 bg-white text-paper-fg`;
+/** Parse the price text; empty means $0.00. Returns an error message instead of throwing for bad input. */
+function readPrice(text: string): { cents: number; error: null } | { cents: null; error: string } {
+  try {
+    return { cents: parseDollars(text === "" ? "0" : text), error: null };
+  } catch (err) {
+    if (!(err instanceof RangeError)) throw err;
+    return { cents: null, error: err.message };
+  }
+}
 
-/** Shared add/edit form: name + price. */
-export function ItemForm({
-  idPrefix,
-  initialName = "",
-  initialCents,
-  submitLabel,
-  onSubmit,
-  onCancel,
-  onDelete,
-  autoFocus,
-}: {
-  idPrefix: string;
-  initialName?: string;
-  initialCents?: number;
-  submitLabel: string;
-  onSubmit: (name: string, cents: number) => void;
-  onCancel?: () => void;
-  onDelete?: () => void;
-  autoFocus?: boolean;
-}) {
-  const [name, setName] = useState(initialName);
-  const [price, setPrice] = useState(initialCents === undefined ? "" : centsToInput(initialCents));
+/** Quick-add row at the bottom of the receipt: name + price + add. */
+export function AddItemForm({ onAdd, autoFocus }: { onAdd: (name: string, cents: number) => void; autoFocus?: boolean }) {
+  const id = useId();
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (name.trim() === "") return setError("Enter an item name.");
-    let cents: number;
-    try {
-      cents = parseDollars(price === "" ? "0" : price);
-    } catch (err) {
-      if (!(err instanceof RangeError)) throw err;
-      return setError(err.message);
-    }
+    const parsed = readPrice(price);
+    if (parsed.error !== null) return setError(parsed.error);
     setError(null);
-    onSubmit(name, cents);
-    if (!onCancel) {
-      setName("");
-      setPrice("");
-    }
+    onAdd(name, parsed.cents);
+    setName("");
+    setPrice("");
+    document.getElementById(`${id}-name`)?.focus();
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      onKeyDown={(e) => e.key === "Escape" && onCancel?.()}
-      noValidate
-      className="py-2"
-    >
+    <form onSubmit={handleSubmit} noValidate className="pt-3">
       <div className="flex gap-2">
-        <label htmlFor={`${idPrefix}-name`} className="sr-only">Item name</label>
-        <input
-          id={`${idPrefix}-name`}
-          className={`${paperInput} flex-1`}
+        <label htmlFor={`${id}-name`} className="sr-only">Item name</label>
+        <Input
+          id={`${id}-name`}
+          className="flex-1 font-mono"
           value={name}
           maxLength={MAX_ITEM_NAME_LENGTH}
           placeholder="Item"
@@ -70,92 +51,143 @@ export function ItemForm({
           autoComplete="off"
           onChange={(e) => setName(e.target.value)}
         />
-        <label htmlFor={`${idPrefix}-price`} className="sr-only">Price in dollars</label>
-        <input
-          id={`${idPrefix}-price`}
-          className={`${paperInput} w-24 shrink-0 text-right font-mono tabular-nums`}
+        <label htmlFor={`${id}-price`} className="sr-only">Price in dollars</label>
+        <Input
+          id={`${id}-price`}
+          className="w-24 shrink-0 text-right font-mono tabular-nums"
           value={price}
           inputMode="decimal"
           placeholder="0.00"
           autoComplete="off"
           aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
           onChange={(e) => setPrice(e.target.value)}
         />
+        <Button type="submit" size="icon" aria-label="Add item" className="shrink-0">
+          <Plus />
+        </Button>
       </div>
-      <FieldError id={`${idPrefix}-error`} message={error} />
-      <div className="mt-2 flex items-center gap-2">
-        <button type="submit" className="min-h-11 rounded-xl bg-paper-fg px-4 text-sm font-semibold text-paper">
-          {submitLabel}
+      <FieldError id={`${id}-error`} message={error} />
+    </form>
+  );
+}
+
+/** Edit form shown in the bottom sheet. */
+export function EditItemForm({
+  item,
+  onSave,
+  onDelete,
+  onSplit,
+}: {
+  item: BillItem;
+  onSave: (name: string, cents: number) => void;
+  onDelete: () => void;
+  onSplit: (() => void) | null;
+}) {
+  const id = useId();
+  const [name, setName] = useState(item.name);
+  const [price, setPrice] = useState(centsToInput(item.priceCents));
+  const [error, setError] = useState<string | null>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (name.trim() === "") return setError("Enter an item name.");
+    const parsed = readPrice(price);
+    if (parsed.error !== null) return setError(parsed.error);
+    setError(null);
+    onSave(name, parsed.cents);
+  }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="space-y-4 px-5 pt-4">
+      <div className="space-y-1.5">
+        <Label htmlFor={`${id}-name`}>Item</Label>
+        <Input
+          id={`${id}-name`}
+          value={name}
+          maxLength={MAX_ITEM_NAME_LENGTH}
+          autoComplete="off"
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${id}-price`}>Price{item.quantity > 1 ? ` (all ${item.quantity})` : ""}</Label>
+        <div className="relative">
+          <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-muted-foreground">$</span>
+          <Input
+            id={`${id}-price`}
+            className="pl-7 font-mono tabular-nums"
+            value={price}
+            inputMode="decimal"
+            placeholder="0.00"
+            autoComplete="off"
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${id}-error` : undefined}
+            onChange={(e) => setPrice(e.target.value)}
+          />
+        </div>
+        <FieldError id={`${id}-error`} message={error} />
+      </div>
+      {onSplit ? (
+        <button
+          type="button"
+          onClick={onSplit}
+          className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-[10px] border border-border px-3.5 text-left text-sm hover:bg-muted"
+        >
+          <Scissors aria-hidden="true" className="size-4 text-muted-foreground" />
+          <span className="flex-1">
+            Split into {item.quantity} separate lines
+            <span className="block text-xs text-muted-foreground">So people can claim one each</span>
+          </span>
         </button>
-        {onCancel ? (
-          <button type="button" onClick={onCancel} className="min-h-11 rounded-xl px-3 text-sm font-semibold text-paper-fg/70 hover:bg-paper-fg/5">
-            Cancel
-          </button>
-        ) : null}
-        {onDelete ? (
-          <button type="button" onClick={onDelete} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-red-700 hover:bg-red-50">
-            <Icon name="trash" className="h-4 w-4" /> Delete
-          </button>
-        ) : null}
+      ) : null}
+      <div className="flex flex-col gap-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
+        <Button type="submit" size="lg" className="w-full">Save</Button>
+        <Button type="button" variant="destructive" className="w-full" onClick={onDelete}>
+          <Trash2 aria-hidden="true" /> Delete item
+        </Button>
       </div>
     </form>
   );
 }
 
-export function ItemRow({ item, dispatch }: { item: BillItem; dispatch: Dispatch<BillAction> }) {
-  const [editing, setEditing] = useState(false);
-
-  if (editing) {
-    return (
-      <li>
-        <ItemForm
-          idPrefix={`edit-${item.id}`}
-          initialName={item.name}
-          initialCents={item.priceCents}
-          submitLabel="Save"
-          autoFocus
-          onSubmit={(name, priceCents) => {
-            dispatch({ type: "editItem", id: item.id, name, priceCents });
-            setEditing(false);
-          }}
-          onCancel={() => setEditing(false)}
-          onDelete={() => dispatch({ type: "removeItem", id: item.id })}
-        />
-      </li>
-    );
-  }
-
+/** One receipt line. Tapping it opens the edit sheet. */
+export function ItemRow({
+  item,
+  onEdit,
+  dispatch,
+}: {
+  item: BillItem;
+  onEdit: () => void;
+  dispatch: Dispatch<BillAction>;
+}) {
   const canSplit = item.quantity > 1 && item.quantity <= MAX_UNITS;
   return (
-    <li className="group flex items-center gap-1">
+    <li>
       <button
         type="button"
-        onClick={() => setEditing(true)}
+        onClick={onEdit}
         aria-label={`Edit ${item.name}`}
-        className="flex min-h-12 min-w-0 flex-1 items-baseline gap-2 rounded-lg py-2 pr-1 text-left hover:bg-paper-fg/[0.04]"
+        className="group -mx-2 flex min-h-11 w-[calc(100%+1rem)] cursor-pointer items-baseline gap-2 rounded-md px-2 py-2.5 text-left font-mono text-[14px] hover:bg-muted"
       >
         {item.quantity > 1 ? (
-          <span className="font-mono text-sm text-paper-fg/60 tabular-nums">{item.quantity}×</span>
+          <span className="shrink-0 tabular-nums text-muted-foreground">{item.quantity}×</span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate text-[15px]">{item.name}</span>
-        <span className="font-mono text-[15px] tabular-nums">
-          <MoneyText cents={item.priceCents} />
-        </span>
+        <span className="min-w-0 truncate">{item.name}</span>
+        <span aria-hidden="true" className="mb-1 min-w-4 flex-1 border-b border-dotted border-input" />
+        <MoneyText cents={item.priceCents} className="shrink-0" />
+        <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 self-center text-muted-foreground/60 group-hover:text-foreground" />
       </button>
       {canSplit ? (
         <button
           type="button"
           onClick={() => dispatch({ type: "splitItemIntoUnits", itemId: item.id })}
-          className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+          className="-mt-1 mb-1 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md text-[13px] font-medium text-accent hover:underline"
         >
-          <Icon name="scissors" className="h-4 w-4" />
-          Split into {item.quantity}
+          <Scissors aria-hidden="true" className="size-3.5" />
+          Split into {item.quantity} so people can claim one each
         </button>
-      ) : (
-        <button type="button" aria-label={`Remove ${item.name}`} onClick={() => dispatch({ type: "removeItem", id: item.id })} className={iconButton}>
-          <Icon name="x" className="h-4 w-4" />
-        </button>
-      )}
+      ) : null}
     </li>
   );
 }

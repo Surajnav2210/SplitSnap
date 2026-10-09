@@ -2,14 +2,11 @@
 // report parsed integer cents upward only when the text is valid.
 
 import { useId, useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { CircleAlert } from "lucide-react";
 import { money } from "@/core/money";
 import { formatCents, parseDollars } from "@/core/parse";
-import { cx } from "@/components/ui/cx";
-
-export const inputClass =
-  "block w-full min-w-0 rounded-xl border border-line-strong bg-elevated px-3.5 py-2.5 text-base text-fg " +
-  "placeholder:text-muted/70 transition-shadow focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/20 " +
-  "aria-[invalid=true]:border-danger aria-[invalid=true]:focus:ring-danger/20";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 /** "1234.5" style text for an input: no "$", empty for zero. */
 export function centsToInput(cents: number): string {
@@ -32,7 +29,8 @@ export function parseOrZero(text: string, parse: (s: string) => number): Parsed 
 export function FieldError({ id, message }: { id: string; message: string | null }) {
   if (!message) return null;
   return (
-    <p id={id} role="alert" className="mt-1.5 text-sm font-medium text-danger">
+    <p id={id} role="alert" className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-destructive">
+      <CircleAlert aria-hidden="true" className="size-3.5 shrink-0" />
       {message}
     </p>
   );
@@ -57,12 +55,12 @@ export function PrefixedInput({
       <div className="relative">
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-sm font-medium text-muted"
+          className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-[15px] text-muted-foreground"
         >
           {prefix}
         </span>
-        <input
-          className={cx(inputClass, padClass, className)}
+        <Input
+          className={cn(padClass, className)}
           autoComplete="off"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
@@ -91,18 +89,19 @@ export function MoneyField({
   const [error, setError] = useState<string | null>(null);
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 flex items-baseline justify-between text-sm font-medium text-fg">
+      <label htmlFor={id} className="mb-1.5 flex items-baseline justify-between text-[13px] font-medium text-foreground">
         {label}
-        {hint ? <span className="text-xs font-normal text-muted">{hint}</span> : null}
+        {hint ? <span className="text-xs font-normal text-muted-foreground">{hint}</span> : null}
       </label>
       <PrefixedInput
         id={id}
         prefix="$"
+        padClass="pl-7"
         value={text}
         inputMode="decimal"
         placeholder="0.00"
         error={error}
-        className="tabular-nums"
+        className="font-mono tabular-nums"
         onChange={(e) => {
           setText(e.target.value);
           const parsed = parseOrZero(e.target.value, parseDollars);

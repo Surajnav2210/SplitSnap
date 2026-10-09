@@ -1,32 +1,28 @@
 import { useId, useState } from "react";
+import { ArrowUpRight, ChevronDown } from "lucide-react";
 import type { PaymentLink } from "@/core/paymentLinks";
 import type { ParticipantShare } from "@/core/split";
-import { Avatar } from "@/components/ui/Avatar";
-import { Icon } from "@/components/ui/Icon";
-import { MoneyText } from "@/components/ui/MoneyText";
-import { cx } from "@/components/ui/cx";
+import { Avatar } from "@/components/ui/avatar";
+import { buttonVariants } from "@/components/ui/button";
+import { MoneyText } from "@/components/ui/money-text";
+import { cn } from "@/lib/utils";
 import type { BillPerson, ItemShare } from "../state";
-
-const appStyles: Record<PaymentLink["app"], string> = {
-  venmo: "bg-[#008CFF] text-white hover:bg-[#0074d4]",
-  paypal: "bg-[#FFC439] text-[#111] hover:bg-[#f2b622]",
-  cashapp: "bg-[#00C244] text-white hover:bg-[#00a83b]",
-};
 
 function Row({ label, cents, sub }: { label: string; cents: number; sub?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1 text-sm">
-      <dt className="min-w-0 truncate text-muted">
+    <div className="flex items-baseline justify-between gap-3 py-1 text-[13px]">
+      <dt className="min-w-0 truncate text-muted-foreground">
         {label}
-        {sub ? <span className="ml-1.5 text-xs opacity-75">{sub}</span> : null}
+        {sub ? <span className="ml-1.5 font-mono text-xs">{sub}</span> : null}
       </dt>
-      <dd className="tabular-nums text-fg">
-        <MoneyText cents={cents} />
+      <dd className="text-foreground">
+        <MoneyText cents={cents} mono />
       </dd>
     </div>
   );
 }
 
+/** One person's row on Settle: total, an expandable breakdown, and pay buttons. */
 export function OweCard({
   person,
   share,
@@ -49,31 +45,38 @@ export function OweCard({
   const owes = !isHost && share.total.cents > 0;
 
   return (
-    <li className="overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
+    <li>
       <button
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
-        className="flex min-h-16 w-full items-center gap-3 px-4 py-3.5 text-left"
+        className="flex min-h-[4.5rem] w-full cursor-pointer items-center gap-3.5 px-4 py-3 text-left hover:bg-muted/60"
       >
         <Avatar name={person.name} seed={person.tone} size="lg" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold text-fg">{person.name}</span>
-          <span className="block text-xs text-muted">
+          <span className="block truncate text-base font-medium text-foreground">{person.name}</span>
+          <span className="block text-[13px] text-muted-foreground">
             {isHost ? "Paid the bill · own share" : owes ? `Owes ${hostName}` : "Nothing to pay"}
           </span>
         </span>
-        <MoneyText cents={share.total.cents} className={cx("text-xl font-bold", owes ? "text-fg" : "text-muted")} />
-        <Icon name="chevronDown" className={cx("h-4 w-4 text-muted transition-transform", open && "rotate-180")} />
+        <MoneyText
+          cents={share.total.cents}
+          mono
+          className={cn("text-xl font-semibold tracking-[-0.02em]", owes ? "text-foreground" : "text-muted-foreground")}
+        />
+        <ChevronDown
+          aria-hidden="true"
+          className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-180")}
+        />
       </button>
 
-      <div id={panelId} hidden={!open} className="border-t border-line px-4 py-3">
+      <div id={panelId} hidden={!open} className="mx-4 mb-3 rounded-lg bg-muted px-3.5 py-2.5">
         <dl>
           {items.map((i) => (
             <Row key={i.itemId} label={i.name} sub={i.ways > 1 ? `÷${i.ways}` : undefined} cents={i.cents} />
           ))}
-          <div className="my-1.5 border-t border-dashed border-line" />
+          <div className="my-1.5 border-t border-dashed border-input" />
           <Row label="Tax" cents={share.tax.cents} />
           <Row label="Tip" cents={share.tip.cents} />
           {share.fees.cents !== 0 ? <Row label="Fees" cents={share.fees.cents} /> : null}
@@ -82,31 +85,26 @@ export function OweCard({
       </div>
 
       {owes ? (
-        <div className="border-t border-line bg-sunken/60 px-4 py-3">
+        <div className="px-4 pb-4">
           {links.length > 0 ? (
-            <>
-              <div className="flex flex-wrap gap-2">
-                {links.map((l) => (
-                  <a
-                    key={l.app}
-                    href={l.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cx(
-                      "inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-bold transition-colors",
-                      appStyles[l.app],
-                    )}
-                  >
-                    {l.label}
-                    <span className="sr-only"> (opens {l.label} to pay {hostName})</span>
-                  </a>
-                ))}
-              </div>
-              <p className="mt-2 text-[11px] text-muted">Opens the app with the amount filled in. SplitSnap never handles your money.</p>
-            </>
+            <div className="flex flex-wrap gap-2 pl-[3.625rem]">
+              {links.map((l) => (
+                <a
+                  key={l.app}
+                  href={l.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "flex-1")}
+                >
+                  {l.label}
+                  <ArrowUpRight aria-hidden="true" className="size-3.5 text-muted-foreground" />
+                  <span className="sr-only"> (opens {l.label} to pay {hostName})</span>
+                </a>
+              ))}
+            </div>
           ) : (
-            <p className="text-xs text-muted">
-              {hasHandles ? "No valid payment handles yet." : "Add your Venmo, PayPal or Cash App below to get pay buttons."}
+            <p className="pl-[3.625rem] text-[13px] text-muted-foreground">
+              {hasHandles ? "No valid payment handles yet." : "Add a Venmo, PayPal or Cash App handle below to get pay buttons."}
             </p>
           )}
         </div>

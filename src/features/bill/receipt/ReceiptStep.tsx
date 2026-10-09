@@ -1,8 +1,9 @@
 import Image from "next/image";
 import type { Dispatch } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { Camera, CircleAlert, ReceiptText } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { reconcile, type BillAction, type BillState } from "../state";
-import { inputClass } from "../fields";
 import { AdjustmentsEditor } from "./AdjustmentsEditor";
 import { ReceiptPaper } from "./ReceiptPaper";
 import { ReceiptStart } from "./ReceiptStart";
@@ -50,17 +51,17 @@ export function ReceiptStep({
 
   const thumbnail = state.source === "scan" ? scan.thumbnail : null;
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 rounded-3xl border border-line bg-surface p-3 shadow-card">
-        <span className="relative flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sunken text-muted">
+    <div className="space-y-5">
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-2.5 pr-2">
+        <span className="relative flex h-12 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted text-muted-foreground">
           {thumbnail ? (
-            <Image unoptimized src={thumbnail} alt="Your receipt photo" width={44} height={56} className="h-full w-full object-cover" />
+            <Image unoptimized src={thumbnail} alt="Your receipt photo" width={40} height={48} className="h-full w-full object-cover" />
           ) : (
-            <Icon name="receipt" className="h-5 w-5" />
+            <ReceiptText aria-hidden="true" className="size-4" />
           )}
         </span>
         <div className="min-w-0 flex-1">
-          <label htmlFor="merchant" className="text-xs font-medium text-muted">
+          <label htmlFor="merchant" className="block text-xs text-muted-foreground">
             {state.source === "scan" ? "Scanned from" : "Restaurant"}
           </label>
           <input
@@ -71,11 +72,16 @@ export function ReceiptStep({
             maxLength={40}
             autoComplete="off"
             onChange={(e) => dispatch({ type: "setMerchant", name: e.target.value })}
-            className={`${inputClass} mt-0.5 border-transparent! bg-transparent! px-0! py-0.5! text-base font-semibold`}
+            className="w-full min-w-0 rounded-sm bg-transparent text-base font-medium text-foreground outline-none placeholder:text-muted-foreground/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           />
         </div>
-        <label className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-brand hover:bg-brand-soft focus-within:outline-2 focus-within:outline-brand">
-          <Icon name="camera" className="h-4 w-4" />
+        <label
+          className={cn(
+            buttonVariants({ variant: "ghost", size: "sm" }),
+            "focus-within:outline-2 focus-within:outline-ring",
+          )}
+        >
+          <Camera aria-hidden="true" />
           Rescan
           <input
             type="file"
@@ -91,7 +97,8 @@ export function ReceiptStep({
       </div>
 
       {scan.phase.kind === "error" ? (
-        <p role="alert" className="rounded-2xl border border-warning-line bg-warning-soft px-4 py-3 text-sm text-fg">
+        <p role="alert" className="flex items-start gap-2.5 rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground">
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
           {scan.phase.message}
         </p>
       ) : null}
@@ -108,7 +115,8 @@ export function ReceiptStep({
       />
 
       {splitError ? (
-        <p role="alert" className="rounded-2xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">
+        <p role="alert" className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive">
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           {splitError}
         </p>
       ) : null}
