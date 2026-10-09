@@ -81,10 +81,11 @@ describe("extractReceipt", () => {
   });
 
   it("maps other API errors and network failures to UPSTREAM", async () => {
-    generateContent.mockRejectedValueOnce(new ApiError({ message: "boom", status: 500 }));
-    expect(await scanErrorCode(extractReceipt(image))).toBe("UPSTREAM");
+    const hooks = { sleep: async () => {}, random: () => 0, now: () => 0 };
+    generateContent.mockRejectedValue(new ApiError({ message: "boom", status: 500 }));
+    expect(await scanErrorCode(extractReceipt(image, hooks))).toBe("UPSTREAM");
     generateContent.mockRejectedValueOnce(new TypeError("fetch failed"));
-    expect(await scanErrorCode(extractReceipt(image))).toBe("UPSTREAM");
+    expect(await scanErrorCode(extractReceipt(image, hooks))).toBe("UPSTREAM");
   });
 
   it.each([
@@ -128,5 +129,107 @@ describe("extractReceipt", () => {
   it("maps an undefined response text to UNREADABLE", async () => {
     generateContent.mockResolvedValue({ text: undefined });
     expect(await scanErrorCode(extractReceipt(image))).toBe("UNREADABLE");
+  });
+});
+
+describe("extractReceipt retries", () => {
+  const ok = { text: '{"items":[{"name":"A","totalPrice":"1.00"}]}' };
+  const apiError = (status: number) => new ApiError({ message: `status ${status}`, status });
+
+  // Fake clock: sleep advances time instead of waiting.
+  let clock = 0;
+  const sleeps: number[] = [];
+  const hooks = {
+    now: () => clock,
+    sleep: async (ms: number) => {
+      sleeps.push(ms);
+      clock += ms;
+    },
+    random: () => 0.5,
+  };
+
+  beforeEach(() => {
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+    vi.stubEnv("GEMINI_MODEL", "");
+    generateContent.mockReset();
+    clock = 0;
+    sleeps.length = 0;
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("retries a 503 and succeeds on the second call", async () => {
+    generateContent.mockRejectedValueOnce(apiError(503)).mockResolvedValueOnce(ok);
+    await expect(extractReceipt(image, hooks)).resolves.toEqual({ items: [{ name: "A", totalPrice: "1.00" }] });
+    expect(generateContent).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries 504 twice and succeeds on the third call with exponential full-jitter backoff", async () => {
+    generateContent.mockRejectedValueOnce(apiError(504)).mockRejectedValueOnce(apiError(504)).mockResolvedValueOnce(ok);
+    await expect(extractReceipt(image, hooks)).resolves.toEqual({ items: [{ name: "A", totalPrice: "1.00" }] });
+    expect(generateContent).toHaveBeenCalledTimes(3);
+    // random() = 0.5 → half of min(cap, 400 * 2^retry)
+    expect(sleeps).toEqual([200, 400]);
+  });
+
+  it.each([[500], [502], [503], [504]])("maps a persistent %i to UPSTREAM after 3 calls", async (status) => {
+    generateContent.mockRejectedValue(apiError(status));
+    const err: unknown = await extractReceipt(image, hooks).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(ScanError);
+    expect((err as ScanError).code).toBe("UPSTREAM");
+    expect((err as ScanError).attempts).toBe(3);
+    expect(generateContent).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry 429: QUOTA after exactly 1 call", async () => {
+    generateContent.mockRejectedValue(apiError(429));
+    expect(await scanErrorCode(extractReceipt(image, hooks))).toBe("QUOTA");
+    expect(generateContent).toHaveBeenCalledTimes(1);
+    expect(sleeps).toEqual([]);
+  });
+
+  it.each([[400], [401], [403], [404]])("does not retry %i", async (status) => {
+    generateContent.mockRejectedValue(apiError(status));
+    expect(await scanErrorCode(extractReceipt(image, hooks))).toBe("UPSTREAM");
+    expect(generateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry network errors or UNREADABLE results", async () => {
+    generateContent.mockRejectedValueOnce(new TypeError("fetch failed"));
+    expect(await scanErrorCode(extractReceipt(image, hooks))).toBe("UPSTREAM");
+    expect(generateContent).toHaveBeenCalledTimes(1);
+
+    generateContent.mockReset();
+    generateContent.mockResolvedValue({ text: '{"items":[]}' });
+    expect(await scanErrorCode(extractReceipt(image, hooks))).toBe("UNREADABLE");
+    expect(generateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops retrying when the remaining budget is too small", async () => {
+    // The first call takes 23s of the 25s budget, leaving < 3s.
+    generateContent.mockImplementationOnce(async () => {
+      clock += 23_000;
+      throw apiError(503);
+    });
+    generateContent.mockResolvedValue(ok);
+    expect(await scanErrorCode(extractReceipt(image, hooks))).toBe("UPSTREAM");
+    expect(generateContent).toHaveBeenCalledTimes(1);
+    expect(sleeps).toEqual([]);
+  });
+
+  it("gives each attempt the remaining budget as its timeout", async () => {
+    generateContent.mockImplementationOnce(async () => {
+      clock += 10_000;
+      throw apiError(503);
+    });
+    generateContent.mockResolvedValueOnce(ok);
+    await extractReceipt(image, hooks);
+    expect(generateContent.mock.calls[0][0].config.httpOptions.timeout).toBe(25_000);
+    // 25s - 10s elapsed - 200ms backoff
+    expect(generateContent.mock.calls[1][0].config.httpOptions.timeout).toBe(14_800);
   });
 });

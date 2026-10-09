@@ -40,11 +40,14 @@ export const SCAN_ERROR_MESSAGES: Readonly<Record<ScanErrorCode, string>> = {
  */
 export class ScanError extends Error {
   readonly code: ScanErrorCode;
+  /** How many upstream calls were made before failing (diagnostics only). */
+  readonly attempts: number | undefined;
 
-  constructor(code: ScanErrorCode, options?: { cause?: unknown }) {
-    super(SCAN_ERROR_MESSAGES[code], options);
+  constructor(code: ScanErrorCode, options?: { cause?: unknown; attempts?: number }) {
+    super(SCAN_ERROR_MESSAGES[code], options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = "ScanError";
     this.code = code;
+    this.attempts = options?.attempts;
   }
 }
 

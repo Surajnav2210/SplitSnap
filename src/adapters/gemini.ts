@@ -67,6 +67,36 @@ function isQuotaError(err: unknown): boolean {
   return err instanceof Error && /RESOURCE_EXHAUSTED/i.test(err.message);
 }
 
+// --- Retry policy -------------------------------------------------------------
+// Receipt extraction is read-only, so retrying is safe. Only transient server
+// errors are retried; 429 (quota), other 4xx, and our own validation results
+// (UNREADABLE) are not.
+
+const RETRYABLE_STATUSES: ReadonlySet<number> = new Set([500, 502, 503, 504]);
+export const MAX_RETRIES = 2;
+export const RETRY_BASE_MS = 400;
+export const RETRY_CAP_MS = 2_500;
+/** Don't start another attempt if less than this remains of the overall budget. */
+export const MIN_ATTEMPT_BUDGET_MS = 3_000;
+
+function isRetryable(err: unknown): boolean {
+  return err instanceof ApiError && RETRYABLE_STATUSES.has(err.status);
+}
+
+/** Full-jitter backoff: uniform in [0, min(cap, base * 2^retry)). */
+function backoffMs(retry: number, random: () => number): number {
+  return Math.floor(random() * Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** retry));
+}
+
+/** Injectable hooks so tests don't actually wait. Production uses the defaults. */
+export interface ExtractOptions {
+  sleep?: (ms: number) => Promise<void>;
+  random?: () => number;
+  now?: () => number;
+}
+
+const defaultSleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 // Finish reasons that still mean "the model finished writing normally".
 const NORMAL_FINISH: ReadonlySet<string> = new Set([FinishReason.STOP, FinishReason.FINISH_REASON_UNSPECIFIED]);
 
@@ -99,42 +129,58 @@ function hasItemsArray(value: unknown): boolean {
  *   blockReason, or a finishReason other than STOP such as SAFETY or
  *   MAX_TOKENS), or returned empty text, invalid JSON, or no items
  * - UPSTREAM: anything else (network, timeout, 5xx, bad key, safety block)
+ *
+ * Transient 500/502/503/504 errors are retried up to MAX_RETRIES times with
+ * full-jitter exponential backoff, all within one GEMINI_TIMEOUT_MS budget.
  */
-export async function extractReceipt(image: ReceiptImage): Promise<unknown> {
+export async function extractReceipt(image: ReceiptImage, options: ExtractOptions = {}): Promise<unknown> {
+  const sleep = options.sleep ?? defaultSleep;
+  const random = options.random ?? Math.random;
+  const now = options.now ?? Date.now;
+
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new ScanError("NO_API_KEY");
   const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
 
   const ai = new GoogleGenAI({ apiKey });
 
+  const data = Buffer.from(image.bytes).toString("base64");
+  const deadline = now() + GEMINI_TIMEOUT_MS;
+
   let response: GenerateContentResponse;
-  try {
-    response = await ai.models.generateContent({
-      model,
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              inlineData: {
-                mimeType: image.mimeType,
-                data: Buffer.from(image.bytes).toString("base64"),
-              },
-            },
-            { text: PROMPT },
-          ],
+  let attempts = 0;
+  for (;;) {
+    const remaining = deadline - now();
+    attempts += 1;
+    try {
+      response = await ai.models.generateContent({
+        model,
+        contents: [
+          {
+            role: "user",
+            parts: [{ inlineData: { mimeType: image.mimeType, data } }, { text: PROMPT }],
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseJsonSchema: RESPONSE_JSON_SCHEMA,
+          temperature: 0,
+          httpOptions: { timeout: remaining },
+          abortSignal: AbortSignal.timeout(remaining),
         },
-      ],
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: RESPONSE_JSON_SCHEMA,
-        temperature: 0,
-        httpOptions: { timeout: GEMINI_TIMEOUT_MS },
-        abortSignal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
-      },
-    });
-  } catch (err) {
-    throw new ScanError(isQuotaError(err) ? "QUOTA" : "UPSTREAM", { cause: err });
+      });
+      break;
+    } catch (err) {
+      const retry = attempts - 1;
+      if (isRetryable(err) && retry < MAX_RETRIES) {
+        const delay = backoffMs(retry, random);
+        if (deadline - now() - delay >= MIN_ATTEMPT_BUDGET_MS) {
+          await sleep(delay);
+          continue;
+        }
+      }
+      throw new ScanError(isQuotaError(err) ? "QUOTA" : "UPSTREAM", { cause: err, attempts });
+    }
   }
 
   if (wasBlockedOrCutOff(response)) throw new ScanError("UNREADABLE");

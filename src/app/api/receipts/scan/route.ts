@@ -132,7 +132,7 @@ function logScanFailure(err: ScanError): void {
     typeof cause === "object" && cause !== null && "status" in cause && typeof cause.status === "number"
       ? cause.status
       : undefined;
-  console.error("receipt scan failed", { code: err.code, upstreamStatus: status });
+  console.error("receipt scan failed", { code: err.code, upstreamStatus: status, attempts: err.attempts });
 }
 
 export async function POST(request: Request): Promise<Response> {
