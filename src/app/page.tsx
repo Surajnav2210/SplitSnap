@@ -1,43 +1,56 @@
-import Link from "next/link";
+import type { Metadata } from "next";
+import { ButtonLink } from "@/components/ui/Button";
+import { JsonLd } from "@/components/site/JsonLd";
+import { SiteFooter } from "@/components/site/SiteFooter";
+import { SiteHeader } from "@/components/site/SiteHeader";
+import { Comparison } from "@/components/site/landing/Comparison";
+import { Faq } from "@/components/site/landing/Faq";
+import { faqJsonLd } from "@/components/site/landing/faqData";
+import { Hero } from "@/components/site/landing/Hero";
+import { HowItWorks } from "@/components/site/landing/HowItWorks";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
-const steps = ["Snap the receipt", "Everyone taps what they had", "Pay the host"];
+export const metadata: Metadata = {
+  // Uses the layout's default title and Open Graph; only the canonical is page-specific.
+  alternates: { canonical: "/" },
+};
+
+const appJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: SITE_NAME,
+  url: SITE_URL,
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Web",
+  browserRequirements: "Requires a modern web browser with JavaScript.",
+  description: SITE_DESCRIPTION,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+};
 
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 py-16">
-      <div className="flex-1">
-        <h1 className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-          SplitSnap
-        </h1>
-        <p className="mt-3 text-lg text-zinc-700 dark:text-zinc-300">
-          Split the bill before the waiter comes back.
-        </p>
-
-        <ol className="mt-10 space-y-4">
-          {steps.map((step, i) => (
-            <li key={step} className="flex items-center gap-4">
-              <span
-                aria-hidden="true"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 font-semibold text-white"
-              >
-                {i + 1}
-              </span>
-              <span className="text-base text-zinc-900 dark:text-zinc-100">{step}</span>
-            </li>
-          ))}
-        </ol>
-
-        <Link
-          href="/demo"
-          className="mt-10 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-base font-semibold text-white hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:w-auto"
-        >
-          Try the demo
-        </Link>
-      </div>
-
-      <footer className="mt-16 text-sm text-zinc-500 dark:text-zinc-400">
-        SplitSnap never holds or moves your money.
-      </footer>
-    </main>
+    <>
+      <JsonLd data={appJsonLd} />
+      <JsonLd data={faqJsonLd} />
+      <SiteHeader />
+      <main id="main" className="flex-1">
+        <Hero />
+        <HowItWorks />
+        <Comparison />
+        <Faq />
+        <section aria-labelledby="cta-heading" className="px-5 pb-24">
+          <div className="mx-auto max-w-4xl rounded-[32px] bg-brand px-6 py-14 text-center text-brand-fg shadow-pop">
+            <h2 id="cta-heading" className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Next dinner, you&apos;re the hero.
+            </h2>
+            <p className="mx-auto mt-3 max-w-md opacity-90">No app to install. No accounts. Just snap and split.</p>
+            <ButtonLink href="/split" size="lg" variant="secondary" className="mt-8 border-transparent px-8">
+              Split a bill — free
+            </ButtonLink>
+          </div>
+        </section>
+      </main>
+      <SiteFooter />
+    </>
   );
 }

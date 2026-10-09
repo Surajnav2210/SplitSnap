@@ -1,26 +1,163 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   SplitSnap design tokens. Light by default, dark via prefers-color-scheme.
+   Use them through Tailwind utilities: bg-bg, bg-surface, bg-elevated,
+   border-line, text-fg, text-muted, bg-brand, text-brand, text-warning, ...
+   --------------------------------------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #f6f7f5;
+  --surface: #ffffff;
+  --elevated: #ffffff;
+  --sunken: #eef0ec;
+  --line: #e3e6e1;
+  --line-strong: #cfd4cc;
+  --fg: #0d1210;
+  --muted: #5d6762;
+  --brand: #059669; /* emerald-600 */
+  --brand-strong: #047857;
+  --brand-fg: #ffffff;
+  --brand-soft: #d1fae5;
+  --brand-soft-fg: #065f46;
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+  --warning-line: #fbbf24;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --paper: #fffdf8;
+  --paper-fg: #1c1a17;
+  --shadow-card: 0 1px 2px rgb(16 24 20 / 0.04), 0 8px 24px -12px rgb(16 24 20 / 0.12);
+  --shadow-pop: 0 2px 4px rgb(16 24 20 / 0.06), 0 24px 48px -16px rgb(16 24 20 / 0.22);
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #07090a;
+    --surface: #101413;
+    --elevated: #161b19;
+    --sunken: #0b0e0d;
+    --line: #232a27;
+    --line-strong: #333c38;
+    --fg: #ecf1ee;
+    --muted: #94a19a;
+    --brand: #34d399; /* emerald-400 */
+    --brand-strong: #6ee7b7;
+    --brand-fg: #03140d;
+    --brand-soft: rgb(52 211 153 / 0.14);
+    --brand-soft-fg: #6ee7b7;
+    --warning: #fbbf24;
+    --warning-soft: rgb(251 191 36 / 0.12);
+    --warning-line: rgb(251 191 36 / 0.45);
+    --danger: #f87171;
+    --danger-soft: rgb(248 113 113 / 0.12);
+    --paper: #f4f1ea;
+    --paper-fg: #1c1a17;
+    --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
+    --shadow-pop: 0 24px 48px -16px rgb(0 0 0 / 0.6);
+    color-scheme: dark;
   }
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-fg: var(--brand-soft-fg);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-line: var(--warning-line);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-paper: var(--paper);
+  --color-paper-fg: var(--paper-fg);
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --animate-step-in: step-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pop: pop 180ms ease-out both;
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-scan: scan-line 1.8s ease-in-out infinite;
+  --animate-float: float 6s ease-in-out infinite;
+}
+
+@keyframes step-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pop {
+  0% { transform: scale(0.85); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+@keyframes shimmer {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+@keyframes scan-line {
+  0% { top: 4%; }
+  50% { top: 92%; }
+  100% { top: 4%; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-8px) rotate(-2deg); }
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Paper receipt: zigzag torn edges top and bottom. */
+.receipt-paper {
+  --zig: 10px;
+  background: var(--paper);
+  color: var(--paper-fg);
+  -webkit-mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--zig) 51% repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / var(--zig) 51% repeat-x;
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--zig) 51% repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / var(--zig) 51% repeat-x;
+}
+
+/* Masks clip box-shadow, so paper gets its shadow from a wrapper. */
+.paper-shadow {
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.06)) drop-shadow(0 14px 22px rgb(16 24 20 / 0.16));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
