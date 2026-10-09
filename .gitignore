@@ -43,3 +43,9 @@ next-env.d.ts
 
 # vitest reporter output
 /.vitest/
+
+# local tooling (kept on disk, not published)
+/.claude/
+/CLAUDE.md
+/AGENTS.md
+/SETUP.md
