@@ -1,5 +1,5 @@
 -- =============================================================================
--- DRAFT — NOT APPLIED — REQUIRES HUMAN APPROVAL (CLAUDE.md: schema changes need OK)
+-- DRAFT — NOT APPLIED — REQUIRES APPROVAL BEFORE APPLYING
 -- There is no Supabase project yet. Do not run this against any database until
 -- the human has reviewed it. Explanations for a learner: docs/data-model.md
 -- =============================================================================

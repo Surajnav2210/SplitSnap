@@ -1,7 +1,7 @@
 # Architecture
 
 <!-- Write this yourself, in your own words. If you can't explain it, you don't own it yet.
-     Claude may propose edits; you approve them. Keep it to one or two pages. -->
+     Keep it to one or two pages. -->
 
 ## What the product does (and doesn't)
 <2–3 sentences. Include what it never does, e.g. "never holds customer funds".>

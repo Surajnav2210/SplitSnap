@@ -1,6 +1,6 @@
 # Data model (DRAFT, awaiting approval)
 
-> **DRAFT: not applied anywhere.** CLAUDE.md says schema changes need your OK first.
+> **DRAFT: not applied anywhere.** Schema changes need explicit approval before they are applied.
 > Source: `supabase/migrations/0001_initial_schema.sql`. Tests: `supabase/tests/rls_test.sql`.
 
 ## Tables at a glance (ER summary)
