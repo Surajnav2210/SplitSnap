@@ -12,6 +12,7 @@ import { buildSummary } from "@/core/summary";
 import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/ui/money-text";
 import { Toaster } from "@/components/ui/sonner";
+import { ShareWithTable } from "@/features/live/ShareWithTable";
 import { AppHeader, BarStat, BottomBar, StepTitle } from "./AppShell";
 import { ClaimStep } from "./claim/ClaimStep";
 import { PeopleStep } from "./people/PeopleStep";
@@ -160,6 +161,9 @@ export function SplitApp() {
               <ClaimStep state={state} result={result} activeId={active.id} onActiveChange={setActiveId} dispatch={dispatch} />
             ) : null}
             {step === 3 && result ? <SettleStep state={state} result={result} dispatch={dispatch} sent={sent} /> : null}
+            {/* Live sharing works from the People step too, even before anyone else is
+                added: guests add themselves when they open the link. */}
+            {step === 1 || step === 2 || (step === 3 && result) ? <ShareWithTable state={state} /> : null}
 
             {step === 3 && sharer.status.kind === "manual" ? (
               <div className="mt-6">

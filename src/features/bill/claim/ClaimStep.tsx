@@ -19,6 +19,8 @@ export function ClaimStep({
   onActiveChange,
   dispatch,
   stickyClassName = "sticky top-[89px]",
+  showSwitcher = true,
+  canSplitRest = true,
 }: {
   state: BillState;
   result: SplitResult | null;
@@ -27,6 +29,10 @@ export function ClaimStep({
   dispatch: Dispatch<BillAction>;
   /** Where the person switcher sticks (below the app header). Empty to disable. */
   stickyClassName?: string;
+  /** False for a guest on a live bill: they only ever tap for themself. */
+  showSwitcher?: boolean;
+  /** False hides "Split the rest evenly" (only the host may assign others). */
+  canSplitRest?: boolean;
 }) {
   const active = state.people.find((p) => p.id === activeId) ?? state.people[0];
   const totalOf = (id: string) => result?.participants.find((p) => p.participantId === id)?.total.cents ?? 0;
@@ -38,6 +44,7 @@ export function ClaimStep({
 
   return (
     <div className="space-y-5">
+      {showSwitcher ? (
       <div className={cn("z-10 -mx-4 bg-background px-4 py-2", stickyClassName)}>
         <p className="mb-2 text-[13px] text-muted-foreground">
           Tapping as <span className="font-medium text-foreground">{active.name}</span>
@@ -69,6 +76,7 @@ export function ClaimStep({
           })}
         </div>
       </div>
+      ) : null}
 
       {unclaimedCount > 0 ? (
         <div className="flex items-center justify-between gap-3 text-sm">
@@ -78,9 +86,11 @@ export function ClaimStep({
               <span className="tabular-nums">{unclaimedCount}</span> unclaimed
             </span>
           </span>
-          <Button size="sm" variant="outline" onClick={() => dispatch({ type: "assignUnclaimedToAll" })}>
-            Split the rest evenly
-          </Button>
+          {canSplitRest ? (
+            <Button size="sm" variant="outline" onClick={() => dispatch({ type: "assignUnclaimedToAll" })}>
+              Split the rest evenly
+            </Button>
+          ) : null}
         </div>
       ) : (
         <p className="flex items-center gap-2 text-sm text-foreground">
