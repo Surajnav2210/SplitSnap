@@ -1,6 +1,7 @@
 # Data model: shareable live bills
 
-Source: `supabase/migrations/0001_initial_schema.sql` · Tests: `supabase/tests/rls_test.sql`
+Source: `supabase/migrations/0001_initial_schema.sql`, `0002_participant_handles.sql` ·
+Tests: `supabase/tests/rls_test.sql`, `supabase/tests/participant_handles_test.sql`
 
 ## Tables at a glance
 
@@ -11,6 +12,7 @@ bills      1─* line_items                   price_cents = printed line total, 
 bills      1─* bill_adjustments             kind tax|tip|fee|discount, amount_cents ≥ 0
 bills      1─* participants ─*─1 auth.users  host = join_order 1, guests 2, 3, …
 line_items *─* participants via claims      PK (line_item_id, participant_id) → idempotent
+participants 1─0..1 participant_handles     guest's Venmo handle (self + host only)
 bills      1─* settlements ─1 participant   created by lock_bill, one per guest with amount > 0
 audit_log  (no FKs, append-only)            who / what / when / before / after / reason
 ```
@@ -65,6 +67,10 @@ Settlements:
   Direct table writes are limited to claims, the host's item/adjustment edits, and
   renaming yourself. People leave or are removed only through `leave_bill` and
   `remove_participant`.
+- **Guest Venmo handles** (`participant_handles`, for "Request on Venmo") can be read only by
+  that guest and the bill's host, never by other guests. They are set only through
+  `set_participant_venmo`, never written to the audit log, deleted when the guest leaves or
+  is removed, and deleted by retention when the bill is archived.
 - **Audit log:** written only by triggers. The host can read it for their bills; nobody can
   edit or delete it. Participant names and user ids are stripped before logging, so
   retention anonymization can't be undone from the log.
@@ -88,6 +94,7 @@ Call with `supabase.rpc('<name>', { p_...: ... })`. All are `SECURITY DEFINER` w
 | `leave_bill(p_bill_id uuid) returns void` | guest, bill open | Removes the caller's participant row and claims |
 | `remove_participant(p_participant_id uuid) returns void` | host, bill open | Removes a guest's participant row and claims (audited). The host can't be removed |
 | `set_settlement_status(p_settlement_id uuid, p_status text) returns void` | guest or host | Guest, own settlement: `unpaid ⇄ marked_paid`. Host: `unpaid`/`marked_paid → confirmed`, `confirmed → marked_paid`/`unpaid`. Anything else `SS010`. Setting the current status again is a no-op |
+| `set_participant_venmo(p_participant_id uuid, p_venmo text) returns void` | that participant or the bill's host; bill open or locked | Sets a guest's Venmo handle. A leading `@` is stripped and the format is `^[A-Za-z0-9._-]{1,64}$` (else `22023`). NULL or '' clears it (the row is deleted). Errors: `P0002` unknown participant, `42501` someone else, `SS001` bill not open/locked |
 | `upsert_profile(p_display_name text, p_venmo text, p_paypal text, p_cashapp text) returns void` | Google user | Saves name + handles. NULL or '' clears a handle; handles are stored without @ / $ / paypal.me/ |
 
 `p_bill` shape:
@@ -126,7 +133,7 @@ Claims are written directly to the `claims` table:
 | `SS011` | discounts exceed items total | `SS012` | immutable field / append-only |
 
 Realtime publication: `bills`, `line_items`, `bill_adjustments`, `participants`, `claims`,
-`settlements`. INSERT/UPDATE events respect RLS. DELETE events don't: Supabase can't check
+`settlements`, `participant_handles`. INSERT/UPDATE events respect RLS. DELETE events don't: Supabase can't check
 RLS against a deleted row, so it sends every subscriber the old row's primary key, even for
 other bills. Those keys are only UUIDs (for `claims`, the line item and participant ids); no
 names or amounts are sent. The app treats a DELETE as a hint: drop the row if it has it,
