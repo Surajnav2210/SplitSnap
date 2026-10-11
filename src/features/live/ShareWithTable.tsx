@@ -15,7 +15,11 @@ import { loadPending, newClientKey, nextPending, savePending } from "./publish";
 import { useBrowserClient } from "./useBrowserClient";
 import { useSession } from "./useSession";
 
-export function ShareWithTable({ state }: { state: BillState }) {
+/**
+ * `compact` is the one-line version shown under the Settle heading, kept
+ * secondary to the per-person totals.
+ */
+export function ShareWithTable({ state, compact = false }: { state: BillState; compact?: boolean }) {
   const client = useBrowserClient();
   const session = useSession(client ?? null);
   const router = useRouter();
@@ -48,6 +52,26 @@ export function ShareWithTable({ state }: { state: BillState }) {
     }
   }
 
+  const label = busy ? "Opening Google…" : "Share with the table";
+
+  if (compact) {
+    return (
+      <section aria-label="Share with the table" className="mb-6 rounded-xl border border-border bg-card px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <p className="min-w-40 flex-1 text-sm text-muted-foreground">Let everyone claim from their own phone</p>
+          <Button variant="outline" size="sm" className="shrink-0" disabled={busy} onClick={() => void start()}>
+            <Users aria-hidden="true" /> {label}
+          </Button>
+        </div>
+        {error ? (
+          <div className="mt-2">
+            <ActionError message={error} />
+          </div>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section aria-labelledby="live-share-heading" className="mt-6 rounded-xl border border-border bg-card p-5">
       <h2 id="live-share-heading" className="text-base font-semibold tracking-[-0.01em] text-foreground">
@@ -58,7 +82,7 @@ export function ShareWithTable({ state }: { state: BillState }) {
         Google so the bill stays yours.
       </p>
       <Button variant="outline" className="mt-4 w-full" disabled={busy} onClick={() => void start()}>
-        <Users aria-hidden="true" /> {busy ? "Opening Google…" : "Share with the table"}
+        <Users aria-hidden="true" /> {label}
       </Button>
       <div className="mt-3">
         <ActionError message={error} />

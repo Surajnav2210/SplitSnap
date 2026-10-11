@@ -102,7 +102,7 @@ export function SettleStep({
         <p className="mt-2 text-xs text-muted-foreground">Tax and tip are split in proportion to what each person ordered.</p>
       </section>
 
-      <HandlesForm handles={state.handles} dispatch={dispatch} />
+      <HandlesForm handles={state.handles} onChange={(handles) => dispatch({ type: "setHandles", handles })} />
 
       <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
         <ShieldCheck aria-hidden="true" className="size-3.5" />

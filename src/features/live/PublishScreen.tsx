@@ -11,9 +11,11 @@ import { LiveBillError } from "@/adapters/supabase/errors";
 import { publishBill, signInWithGoogle, upsertProfile, type SessionUser } from "@/adapters/supabase/liveBillApi";
 import type { LiveClient } from "@/adapters/supabase/types";
 import { buildPublishPayload, MAX_DISPLAY_NAME_LENGTH } from "@/core/liveBill";
+import { PAYMENT_APPS, type PaymentHandles } from "@/core/paymentLinks";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StepTitle } from "@/features/bill/AppShell";
+import { HandlesForm } from "@/features/bill/settle/HandlesForm";
 import { ActionError, LiveHeader, LiveLoading, LiveMessage } from "./LiveShell";
 import { clearPending, parsePending, readPendingRaw, type PendingPublish } from "./publish";
 import { useBrowserClient } from "./useBrowserClient";
@@ -91,6 +93,10 @@ function SignIn({ client, failed }: { client: LiveClient; failed: boolean }) {
 function ConfirmAndPublish({ client, pending, user }: { client: LiveClient; pending: PendingPublish; user: SessionUser }) {
   const router = useRouter();
   const [name, setName] = useState(pending.bill.hostName || user.suggestedName?.split(/\s+/)[0] || "");
+  const [handles, setHandles] = useState<PaymentHandles>(pending.handles);
+  // Hosts who share from People/Claim haven't reached the Settle handles form yet;
+  // ask here, before publishing, since lock_bill snapshots handles from the profile.
+  const [askHandles] = useState(() => !PAYMENT_APPS.some(({ app }) => (pending.handles[app] ?? "").trim() !== ""));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false); // a double tap must never publish twice
@@ -113,7 +119,7 @@ function ConfirmAndPublish({ client, pending, user }: { client: LiveClient; pend
     inFlight.current = true;
     setBusy(true);
     try {
-      await upsertProfile(client, { displayName: payload.host_display_name, handles: pending.handles });
+      await upsertProfile(client, { displayName: payload.host_display_name, handles });
       const { shareCode } = await publishBill(client, payload);
       clearPending(window.sessionStorage);
       router.replace(`/b/${shareCode}`);
@@ -146,12 +152,19 @@ function ConfirmAndPublish({ client, pending, user }: { client: LiveClient; pend
             placeholder="e.g. Alex"
           />
         </div>
+        {askHandles ? (
+          <HandlesForm
+            handles={handles}
+            onChange={setHandles}
+            description="All optional. Guests see these once you lock the bill, so they can pay you."
+          />
+        ) : null}
         <ActionError message={error} />
         <Button type="submit" size="lg" className="w-full" disabled={busy}>
           {busy ? "Creating link…" : "Create the link"}
         </Button>
         <p className="text-xs text-muted-foreground">
-          Your Venmo, PayPal and Cash App handles from this bill are saved to your profile and shown to guests once you lock
+          Your Venmo, PayPal and Cash App handles are saved to your profile and shown to guests once you lock
           the bill. Shared bills are archived after 30 days.
         </p>
       </form>

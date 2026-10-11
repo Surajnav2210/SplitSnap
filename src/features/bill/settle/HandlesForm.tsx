@@ -1,7 +1,6 @@
-import { useState, type Dispatch } from "react";
+import { useState } from "react";
 import { normalizeHandle, type PaymentApp, type PaymentHandles } from "@/core/paymentLinks";
 import { PrefixedInput } from "../fields";
-import type { BillAction } from "../state";
 
 const FIELDS: readonly { app: PaymentApp; label: string; prefix: string; pad: string; placeholder: string }[] = [
   { app: "venmo", label: "Venmo username", prefix: "@", pad: "pl-8", placeholder: "alex-k" },
@@ -10,13 +9,21 @@ const FIELDS: readonly { app: PaymentApp; label: string; prefix: string; pad: st
 ];
 
 /** Host's payment handles. All optional; invalid ones are flagged and skipped. */
-export function HandlesForm({ handles, dispatch }: { handles: PaymentHandles; dispatch: Dispatch<BillAction> }) {
+export function HandlesForm({
+  handles,
+  onChange,
+  description = "All optional. Only used to build the pay links above.",
+}: {
+  handles: PaymentHandles;
+  onChange: (handles: PaymentHandles) => void;
+  description?: string;
+}) {
   const [draft, setDraft] = useState<PaymentHandles>(handles);
 
   return (
     <section aria-labelledby="handles-heading" className="rounded-xl border border-border bg-card p-5">
       <h2 id="handles-heading" className="text-base font-semibold tracking-[-0.01em] text-foreground">How should people pay you?</h2>
-      <p className="mt-0.5 text-sm text-muted-foreground">All optional. Only used to build the pay links above.</p>
+      <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
       <div className="mt-5 space-y-4">
         {FIELDS.map((f) => {
           const value = draft[f.app] ?? "";
@@ -38,7 +45,7 @@ export function HandlesForm({ handles, dispatch }: { handles: PaymentHandles; di
                 onChange={(e) => {
                   const next = { ...draft, [f.app]: e.target.value };
                   setDraft(next);
-                  dispatch({ type: "setHandles", handles: next });
+                  onChange(next);
                 }}
               />
             </div>

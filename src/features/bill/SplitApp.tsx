@@ -134,7 +134,7 @@ export function SplitApp() {
     <MotionConfig reducedMotion="user">
       <div className="flex min-h-dvh flex-col">
         <AppHeader step={step} canGoTo={canGoTo} onStep={goTo} onReset={startOver} showReset={state.source !== null} />
-        <main id="main" className="mx-auto w-full max-w-xl flex-1 px-4 pb-36 pt-7">
+        <main id="main" className="mx-auto w-full max-w-xl flex-1 px-4 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-7">
           <motion.div
             key={step}
             initial={reduceMotion || direction === 0 ? false : { opacity: 0, x: 16 * direction }}
@@ -160,10 +160,16 @@ export function SplitApp() {
             {step === 2 ? (
               <ClaimStep state={state} result={result} activeId={active.id} onActiveChange={setActiveId} dispatch={dispatch} />
             ) : null}
-            {step === 3 && result ? <SettleStep state={state} result={result} dispatch={dispatch} sent={sent} /> : null}
+            {step === 3 && result ? (
+              <>
+                {/* Compact and first on Settle, so it isn't lost below the handles form. */}
+                <ShareWithTable state={state} compact />
+                <SettleStep state={state} result={result} dispatch={dispatch} sent={sent} />
+              </>
+            ) : null}
             {/* Live sharing works from the People step too, even before anyone else is
                 added: guests add themselves when they open the link. */}
-            {step === 1 || step === 2 || (step === 3 && result) ? <ShareWithTable state={state} /> : null}
+            {step === 1 || step === 2 ? <ShareWithTable state={state} /> : null}
 
             {step === 3 && sharer.status.kind === "manual" ? (
               <div className="mt-6">
