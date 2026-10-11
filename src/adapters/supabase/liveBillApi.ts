@@ -10,6 +10,7 @@ import type {
   LiveBillRows,
   LiveTable,
   LockPayload,
+  ParticipantHandleRow,
   PublishBillPayload,
   SettlementStatus,
 } from "@/core/liveBill";
@@ -23,7 +24,9 @@ import {
   ClaimRowSchema,
   JoinResultSchema,
   LineItemRowSchema,
+  ParticipantHandleRowSchema,
   ParticipantRowSchema,
+  ProfileRowSchema,
   PublishResultSchema,
   SettlementRowSchema,
 } from "./schemas";
@@ -122,6 +125,23 @@ export async function upsertProfile(
   );
 }
 
+/**
+ * Set (or clear) one participant's Venmo username so the host can request
+ * money. Allowed for that participant or the bill's host. Blank clears it.
+ * An invalid username throws INVALID without calling the database (so a typo
+ * never clears a saved username).
+ */
+export async function setParticipantVenmo(client: LiveClient, participantId: string, raw: string): Promise<void> {
+  let venmo: string | null = null;
+  if (raw.trim() !== "") {
+    venmo = normalizeHandle("venmo", raw);
+    if (venmo === null) {
+      throw new LiveBillError("INVALID", { message: "Venmo usernames use only letters, numbers, - _ or ." });
+    }
+  }
+  await run(client.rpc("set_participant_venmo", { p_participant_id: participantId, p_venmo: venmo }));
+}
+
 // ---------------------------------------------------------------------------
 // Claims (direct table writes, checked by RLS)
 // ---------------------------------------------------------------------------
@@ -182,6 +202,37 @@ export async function fetchBillRows(client: LiveClient, billId: string): Promise
   };
 }
 
+/**
+ * Guests' Venmo usernames for one bill. RLS returns only the viewer's own row
+ * for a guest, and every row for the host.
+ */
+export async function fetchParticipantHandles(client: LiveClient, billId: string): Promise<ParticipantHandleRow[]> {
+  const data = await run(client.from("participant_handles").select(COLUMNS.participant_handles).eq("bill_id", billId));
+  return parse(ParticipantHandleRowSchema.array(), data);
+}
+
+export interface MyProfile {
+  displayName: string;
+  /** Only valid handles; missing or invalid ones are left out. */
+  handles: PaymentHandles;
+}
+
+/** The signed-in user's own profile (name + pay handles), or null if they haven't saved one. */
+export async function fetchMyProfile(client: LiveClient, userId: string): Promise<MyProfile | null> {
+  const data = await run(client.from("profiles").select(COLUMNS.profiles).eq("id", userId).maybeSingle());
+  const row = parse(ProfileRowSchema, data);
+  if (row === null) return null;
+  const h = (app: keyof PaymentHandles, raw: string | null) => (raw === null ? undefined : (normalizeHandle(app, raw) ?? undefined));
+  return {
+    displayName: row.display_name,
+    handles: {
+      venmo: h("venmo", row.venmo_handle),
+      paypal: h("paypal", row.paypal_handle),
+      cashapp: h("cashapp", row.cashapp_handle),
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Realtime
 // ---------------------------------------------------------------------------
@@ -233,6 +284,36 @@ export function subscribeToBill(
     if (!active) return;
     onStatus(status === "SUBSCRIBED" ? "live" : "down");
   });
+  return () => {
+    active = false;
+    void client.removeChannel(channel);
+  };
+}
+
+/**
+ * Subscribe to guests' Venmo usernames on one bill (participant_handles), on
+ * a channel of its own. Same rules as subscribeToBill: INSERT/UPDATE are
+ * filtered by bill on the server; DELETE (a cleared username) arrives
+ * unfiltered and is checked with isRelevantDelete. Connection status is
+ * reported by the main bill channel. Returns an unsubscribe function.
+ */
+export function subscribeToParticipantHandles(
+  client: LiveClient,
+  billId: string,
+  onChange: (change: LiveChange) => void,
+): () => void {
+  let active = true;
+  const table = "participant_handles" as const;
+  const channel = client.channel(`bill-handles:${billId}`);
+  for (const event of ["INSERT", "UPDATE"] as const) {
+    channel.on("postgres_changes", { event, schema: "public", table, filter: `bill_id=eq.${billId}` }, () => {
+      if (active) onChange({ table, type: event, old: {} });
+    });
+  }
+  channel.on("postgres_changes", { event: "DELETE", schema: "public", table }, (payload) => {
+    if (active) onChange({ table, type: "DELETE", old: { ...payload.old } });
+  });
+  channel.subscribe();
   return () => {
     active = false;
     void client.removeChannel(channel);

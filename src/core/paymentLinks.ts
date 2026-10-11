@@ -6,6 +6,8 @@
 // - Venmo:    https://venmo.com/{username}?txn=pay&amount=12.34&note={urlencoded}
 // - PayPal:   https://paypal.me/{handle}/12.34USD
 // - Cash App: https://cash.app/${cashtag}/12.34
+// - Venmo request (charge), sent by the host to one guest:
+//             https://venmo.com/{username}?txn=charge&amount=12.34&note={urlencoded}
 
 import { money, type Money } from "./money";
 
@@ -46,6 +48,14 @@ export function normalizeHandle(app: PaymentApp, raw: string): string | null {
   if (app === "paypal") handle = handle.replace(/^(?:https?:\/\/)?(?:www\.)?paypal\.me\//i, "");
   if (handle === "" || handle.length > MAX_HANDLE_LENGTH) return null;
   return HANDLE_RE.test(handle) ? handle : null;
+}
+
+/** True if at least one handle is usable, i.e. the host would get pay buttons. */
+export function hasPaymentHandle(handles: PaymentHandles): boolean {
+  return PAYMENT_APPS.some(({ app }) => {
+    const raw = handles[app];
+    return raw !== undefined && normalizeHandle(app, raw) !== null;
+  });
 }
 
 /** Cents as a plain decimal string for URLs: 1234 -> "12.34", 5 -> "0.05". Integer math only. */
@@ -89,4 +99,17 @@ export function buildPaymentLinks(
     links.push({ app, label, url: buildUrl(app, handle, value, note) });
   }
   return links;
+}
+
+/**
+ * Link the host opens to request money from one guest on Venmo (a "charge").
+ * The host still confirms inside Venmo; nothing is sent automatically.
+ * Returns null for an invalid username or a zero/negative amount. USD only.
+ */
+export function buildVenmoRequestLink(guestHandle: string, amount: Money, note: string): string | null {
+  if (amount.currency !== "USD") throw new Error(`Unsupported currency: ${amount.currency}`);
+  if (amount.cents <= 0) return null;
+  const handle = normalizeHandle("venmo", guestHandle);
+  if (handle === null) return null;
+  return `https://venmo.com/${handle}?txn=charge&amount=${formatAmountForUrl(amount)}&note=${encodeURIComponent(note)}`;
 }

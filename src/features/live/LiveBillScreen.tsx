@@ -10,12 +10,15 @@ import { Lock, LockOpen } from "lucide-react";
 import { LiveBillError } from "@/adapters/supabase/errors";
 import {
   addClaims,
+  fetchMyProfile,
   leaveBill,
   lockBill,
   removeClaim,
   removeParticipant,
+  setParticipantVenmo,
   setSettlementStatus,
   unlockBill,
+  upsertProfile,
 } from "@/adapters/supabase/liveBillApi";
 import type { LiveClient } from "@/adapters/supabase/types";
 import {
@@ -29,14 +32,17 @@ import {
   type LiveBillView,
   type SettlementStatus,
 } from "@/core/liveBill";
+import { hasPaymentHandle, type PaymentHandles } from "@/core/paymentLinks";
 import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/ui/money-text";
+import { Toaster } from "@/components/ui/sonner";
 import { BarStat, BottomBar, StepTitle } from "@/features/bill/AppShell";
 import { ClaimStep } from "@/features/bill/claim/ClaimStep";
 import type { BillAction } from "@/features/bill/state";
 import { toClaimState } from "./claimState";
 import { ActionError } from "./LiveShell";
 import { HostSignIn } from "./HostSignIn";
+import { LockHandlesSheet, RequestSheet } from "./PaymentRequests";
 import { EveryoneTotals, GuestSettle, HostSettle } from "./SettleViews";
 import { ShareLinkCard } from "./ShareLinkCard";
 
@@ -64,6 +70,10 @@ export function LiveBillScreen({ client, bill: snapshot, viewerUserId, viewerIsA
   const bill = optimistic !== null && optimistic.base === snapshot ? optimistic.bill : snapshot;
   const view: LiveBillView = deriveLiveView(bill, viewerUserId);
   const [activeId, setActiveId] = useState(view.me?.id ?? view.host.id);
+  /** Lock was tapped and the host has no pay usernames: ask once before locking. */
+  const [askHandles, setAskHandles] = useState<{ displayName: string } | null>(null);
+  /** Guest whose request sheet is (or was last) shown. */
+  const [request, setRequest] = useState<{ participantId: string; open: boolean } | null>(null);
 
   /** Run a write, show any failure, then re-read the bill either way. */
   async function act(write: () => Promise<void>, opts: { quietCodes?: LiveBillError["code"][] } = {}) {
@@ -97,16 +107,74 @@ export function LiveBillScreen({ client, bill: snapshot, viewerUserId, viewerIsA
     }
   };
 
-  function lock() {
+  /** Freeze amounts and lock. Returns false (and shows why) if the bill can't be locked as is. */
+  function lockNow(): boolean {
     let payload;
     try {
       payload = buildLockPayload(bill);
     } catch (err) {
       setError(messageOf(err));
-      return;
+      return false;
     }
     // STATE = already locked (e.g. a retry after a lost response): the refetch shows the real state.
     void act(() => lockBill(client, bill.id, payload), { quietCodes: ["STATE"] });
+    return true;
+  }
+
+  /** Lock, but first ask how to get paid if the host's profile has no pay usernames. */
+  async function lock() {
+    try {
+      buildLockPayload(bill);
+    } catch (err) {
+      setError(messageOf(err));
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    let profile;
+    try {
+      profile = await fetchMyProfile(client, viewerUserId);
+    } catch (err) {
+      setBusy(false);
+      setError(messageOf(err));
+      return;
+    }
+    setBusy(false);
+    if (profile !== null && hasPaymentHandle(profile.handles)) {
+      lockNow();
+      return;
+    }
+    setAskHandles({ displayName: profile?.displayName ?? view.host.name });
+  }
+
+  /** "Save and lock": store the usernames on the profile (lock copies them onto the bill), then lock. */
+  async function saveHandlesAndLock(handles: PaymentHandles): Promise<string | null> {
+    if (askHandles === null) return null;
+    try {
+      await upsertProfile(client, { displayName: askHandles.displayName, handles });
+    } catch (err) {
+      if (err instanceof LiveBillError) return err.message;
+      throw err;
+    }
+    setAskHandles(null);
+    lockNow();
+    return null;
+  }
+
+  function lockWithoutHandles() {
+    setAskHandles(null);
+    lockNow();
+  }
+
+  async function saveVenmo(participantId: string, raw: string): Promise<string | null> {
+    try {
+      await setParticipantVenmo(client, participantId, raw);
+    } catch (err) {
+      if (err instanceof LiveBillError) return err.message;
+      throw err;
+    }
+    await refetch();
+    return null;
   }
 
   function unlock() {
@@ -154,12 +222,27 @@ export function LiveBillScreen({ client, bill: snapshot, viewerUserId, viewerIsA
           />
           <ActionError message={error} />
           {view.role === "host" ? (
-            <HostSettle view={view} busy={busy} onStatus={setStatus} />
+            <HostSettle
+              view={view}
+              busy={busy}
+              onStatus={setStatus}
+              onRequest={(participantId) => setRequest({ participantId, open: true })}
+            />
           ) : (
-            <GuestSettle view={view} merchant={bill.merchant} busy={busy} onStatus={setStatus} />
+            <GuestSettle view={view} merchant={bill.merchant} busy={busy} onStatus={setStatus} onSaveVenmo={saveVenmo} />
           )}
           {hostSignIn}
         </main>
+        {view.role === "host" ? (
+          <RequestSheet
+            bill={bill}
+            line={view.settlementLines.find((l) => l.participant.id === request?.participantId) ?? null}
+            open={request?.open === true}
+            onClose={() => setRequest((r) => (r === null ? null : { ...r, open: false }))}
+            onSaveVenmo={saveVenmo}
+          />
+        ) : null}
+        <Toaster position="bottom-center" offset={{ bottom: 96 }} mobileOffset={{ bottom: 96 }} />
         {view.role === "host" ? (
           <BottomBar>
             <BarStat label="Still owed to you">
@@ -214,7 +297,7 @@ export function LiveBillScreen({ client, bill: snapshot, viewerUserId, viewerIsA
             <BarStat label={view.unclaimedItemIds.length > 0 ? `${view.unclaimedItemIds.length} unclaimed` : "Everything’s claimed"}>
               {view.split ? <MoneyText cents={view.split.billTotal.cents} mono /> : "—"}
             </BarStat>
-            <Button size="lg" disabled={!view.canLock || busy} onClick={lock} aria-describedby="lock-hint">
+            <Button size="lg" disabled={!view.canLock || busy} onClick={() => void lock()} aria-describedby="lock-hint">
               <Lock aria-hidden="true" /> Lock bill
             </Button>
             <span id="lock-hint" className="sr-only">
@@ -227,6 +310,14 @@ export function LiveBillScreen({ client, bill: snapshot, viewerUserId, viewerIsA
           </BarStat>
         )}
       </BottomBar>
+      {isHost ? (
+        <LockHandlesSheet
+          open={askHandles !== null}
+          onSaveAndLock={saveHandlesAndLock}
+          onSkip={lockWithoutHandles}
+          onClose={() => setAskHandles(null)}
+        />
+      ) : null}
     </>
   );
 }

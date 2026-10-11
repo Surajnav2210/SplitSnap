@@ -81,6 +81,14 @@ export interface SettlementRow {
   marked_paid_at?: string | null;
 }
 
+/** A guest's own Venmo username, so the host can request money (participant_handles). */
+export interface ParticipantHandleRow {
+  participant_id: string;
+  bill_id: string;
+  venmo_handle: string | null;
+  updated_at: string;
+}
+
 export interface LiveBillRows {
   bill: BillRow;
   items: readonly LineItemRow[];
@@ -88,6 +96,8 @@ export interface LiveBillRows {
   participants: readonly ParticipantRow[];
   claims: readonly ClaimRow[];
   settlements: readonly SettlementRow[];
+  /** Visible rows only: a guest sees their own, the host sees everyone's. */
+  participantHandles?: readonly ParticipantHandleRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -148,6 +158,8 @@ export interface LiveBill {
   participants: LiveParticipant[];
   claims: LiveClaim[];
   settlements: LiveSettlement[];
+  /** Participant id -> their Venmo username (no "@"), for the rows the viewer can see. */
+  participantVenmo: Readonly<Record<string, string>>;
 }
 
 const SAFE_INT_RE = /^-?\d{1,16}$/;
@@ -259,6 +271,14 @@ export function toLiveBill(rows: LiveBillRows): LiveBill {
     };
   });
 
+  const participantVenmo: Record<string, string> = {};
+  for (const r of rows.participantHandles ?? []) {
+    own(r, "Participant handle");
+    if (!participantIds.has(r.participant_id)) continue;
+    const venmo = cleanHandle("venmo", r.venmo_handle);
+    if (venmo !== undefined) participantVenmo[r.participant_id] = venmo;
+  }
+
   return {
     id: bill.id,
     shareCode: bill.share_code,
@@ -276,6 +296,7 @@ export function toLiveBill(rows: LiveBillRows): LiveBill {
     participants,
     claims,
     settlements,
+    participantVenmo,
   };
 }
 
@@ -483,7 +504,14 @@ export function normalizeShareCode(raw: string): string | null {
 // Realtime helpers
 // ---------------------------------------------------------------------------
 
-export type LiveTable = "bills" | "line_items" | "bill_adjustments" | "participants" | "claims" | "settlements";
+export type LiveTable =
+  | "bills"
+  | "line_items"
+  | "bill_adjustments"
+  | "participants"
+  | "claims"
+  | "settlements"
+  | "participant_handles";
 
 /**
  * With Row Level Security on, Realtime DELETE events carry only the primary
@@ -503,6 +531,8 @@ export function isRelevantDelete(bill: LiveBill, table: LiveTable, old: Readonly
       return bill.participants.some((p) => p.id === str("id"));
     case "settlements":
       return bill.settlements.some((s) => s.id === str("id"));
+    case "participant_handles":
+      return bill.participants.some((p) => p.id === str("participant_id"));
     case "claims": {
       const itemId = str("line_item_id");
       const participantId = str("participant_id");
@@ -520,6 +550,8 @@ export type LiveRole = "host" | "guest" | "outsider";
 export interface SettlementLine {
   participant: LiveParticipant;
   settlement: LiveSettlement | null;
+  /** The guest's Venmo username, if they (or the host) added it. */
+  venmo: string | null;
 }
 
 export interface LiveBillView {
@@ -540,6 +572,8 @@ export interface LiveBillView {
   mySettlement: LiveSettlement | null;
   /** Guest only, after lock, when they owe something. */
   myPaymentLinks: PaymentLink[];
+  /** Guest only: the Venmo username they shared with the host, if any. */
+  myVenmo: string | null;
   /** Host only: one line per guest, in join order. */
   settlementLines: SettlementLine[];
   /** Host only: owed and not yet confirmed received. */
@@ -572,6 +606,7 @@ export function deriveLiveView(bill: LiveBill, viewerUserId: string | null): Liv
         .map((participant) => ({
           participant,
           settlement: bill.settlements.find((s) => s.participantId === participant.id) ?? null,
+          venmo: bill.participantVenmo[participant.id] ?? null,
         }))
     : [];
   const outstandingCents = isHost
@@ -592,6 +627,7 @@ export function deriveLiveView(bill: LiveBill, viewerUserId: string | null): Liv
     canUnlock: isHost && bill.status === "locked" && bill.settlements.every((s) => s.status === "unpaid"),
     mySettlement,
     myPaymentLinks,
+    myVenmo: role === "guest" && me !== null ? (bill.participantVenmo[me.id] ?? null) : null,
     settlementLines,
     outstandingCents,
   };

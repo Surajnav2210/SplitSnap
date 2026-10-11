@@ -9,6 +9,7 @@ import type {
   BillRow,
   ClaimRow,
   LineItemRow,
+  ParticipantHandleRow,
   ParticipantRow,
   SettlementRow,
 } from "@/core/liveBill";
@@ -69,6 +70,24 @@ export const SettlementRowSchema = z.object({
   marked_paid_at: z.string().nullish(),
 }) satisfies z.ZodType<SettlementRow>;
 
+export const ParticipantHandleRowSchema = z.object({
+  participant_id: id,
+  bill_id: id,
+  venmo_handle: handle,
+  updated_at: z.string(),
+}) satisfies z.ZodType<ParticipantHandleRow>;
+
+/** The signed-in user's own profile row (RLS: owner only). */
+export const ProfileRowSchema = z
+  .object({
+    id,
+    display_name: z.string(),
+    venmo_handle: handle,
+    paypal_handle: handle,
+    cashapp_handle: handle,
+  })
+  .nullable();
+
 /** publish_bill returns a one-row table. */
 export const PublishResultSchema = z.array(z.object({ bill_id: id, share_code: z.string() })).length(1);
 
@@ -85,4 +104,6 @@ export const COLUMNS = {
   participants: "id, bill_id, user_id, display_name, join_order, is_host",
   claims: "bill_id, line_item_id, participant_id",
   settlements: "id, bill_id, participant_id, amount_cents, status, marked_paid_at",
+  participant_handles: "participant_id, bill_id, venmo_handle, updated_at",
+  profiles: "id, display_name, venmo_handle, paypal_handle, cashapp_handle",
 } as const;

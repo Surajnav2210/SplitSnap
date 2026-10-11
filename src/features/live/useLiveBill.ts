@@ -6,7 +6,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toLiveBillError } from "@/adapters/supabase/errors";
-import { fetchBillRows, subscribeToBill } from "@/adapters/supabase/liveBillApi";
+import {
+  fetchBillRows,
+  fetchParticipantHandles,
+  subscribeToBill,
+  subscribeToParticipantHandles,
+  type LiveChange,
+} from "@/adapters/supabase/liveBillApi";
 import type { LiveClient } from "@/adapters/supabase/types";
 import { isRelevantDelete, toLiveBill, type LiveBill } from "@/core/liveBill";
 
@@ -31,7 +37,10 @@ export function useLiveBill(client: LiveClient, billId: string) {
   const refetch = useCallback(async () => {
     const mine = ++seq.current;
     try {
-      const rows = await fetchBillRows(client, billId);
+      const [rows, participantHandles] = await Promise.all([
+        fetchBillRows(client, billId),
+        fetchParticipantHandles(client, billId),
+      ]);
       if (mine !== seq.current) return;
       setFetchOk(true);
       if (rows === null) {
@@ -39,7 +48,7 @@ export function useLiveBill(client: LiveClient, billId: string) {
         setState({ kind: "gone" });
         return;
       }
-      const bill = toLiveBill(rows);
+      const bill = toLiveBill({ ...rows, participantHandles });
       latest.current = bill;
       setState({ kind: "ready", bill });
     } catch (err) {
@@ -64,16 +73,18 @@ export function useLiveBill(client: LiveClient, billId: string) {
       }, DEBOUNCE_MS);
     };
 
+    const onChange = (change: LiveChange) => {
+      if (change.type === "DELETE") {
+        const bill = latest.current;
+        if (bill !== null && !isRelevantDelete(bill, change.table, change.old)) return;
+      }
+      schedule();
+    };
+    const unsubscribeHandles = subscribeToParticipantHandles(client, billId, onChange);
     const unsubscribe = subscribeToBill(
       client,
       billId,
-      (change) => {
-        if (change.type === "DELETE") {
-          const bill = latest.current;
-          if (bill !== null && !isRelevantDelete(bill, change.table, change.old)) return;
-        }
-        schedule();
-      },
+      onChange,
       (status) => {
         setChannel(status);
         // (Re)joined: fetch anything missed while the channel was down.
@@ -93,6 +104,7 @@ export function useLiveBill(client: LiveClient, billId: string) {
     return () => {
       if (timer !== null) clearTimeout(timer);
       unsubscribe();
+      unsubscribeHandles();
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("online", schedule);
       window.removeEventListener("offline", onOffline);

@@ -4,6 +4,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { MoneyText } from "@/components/ui/money-text";
 import { cn } from "@/lib/utils";
+import { GuestVenmoLine, type SaveVenmo } from "./PaymentRequests";
 
 const STATUS_TEXT: Record<SettlementStatus, string> = {
   unpaid: "Not paid yet",
@@ -80,17 +81,19 @@ function PayDisclaimer() {
   );
 }
 
-/** Guest after lock: what they owe, pay buttons, "I've paid". */
+/** Guest after lock: what they owe, pay buttons, "I've paid", optional Venmo username. */
 export function GuestSettle({
   view,
   merchant,
   busy,
   onStatus,
+  onSaveVenmo,
 }: {
   view: LiveBillView;
   merchant: string | null;
   busy: boolean;
   onStatus: (settlementId: string, status: SettlementStatus) => void;
+  onSaveVenmo: SaveVenmo;
 }) {
   const host = view.host.name;
   const s = view.mySettlement;
@@ -127,6 +130,10 @@ export function GuestSettle({
           )}
         </p>
       </section>
+
+      {s.status === "unpaid" && view.me !== null ? (
+        <GuestVenmoLine hostName={host} participantId={view.me.id} venmo={view.myVenmo} onSave={onSaveVenmo} />
+      ) : null}
 
       {s.status === "unpaid" ? (
         view.myPaymentLinks.length > 0 ? (
@@ -167,15 +174,20 @@ export function GuestSettle({
   );
 }
 
-/** Host after lock: who has paid, who hasn't, confirm "Received". */
+/**
+ * Host after lock: who has paid, who hasn't. An unpaid guest gets "Request"
+ * (opens the request sheet) plus "Mark received"; at most two buttons a row.
+ */
 export function HostSettle({
   view,
   busy,
   onStatus,
+  onRequest,
 }: {
   view: LiveBillView;
   busy: boolean;
   onStatus: (settlementId: string, status: SettlementStatus) => void;
+  onRequest: (participantId: string) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -185,34 +197,49 @@ export function HostSettle({
         ) : null}
         {view.settlementLines.map(({ participant, settlement }) => {
           const actions = settlement ? settlementActions("host", settlement) : [];
+          const canRequest = settlement !== null && settlement.status === "unpaid" && settlement.amountCents > 0;
           return (
-            <li key={participant.id} className="flex min-h-[4.5rem] items-center gap-3.5 px-4 py-3">
-              <Avatar name={participant.name} seed={participant.tone} size="lg" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-base font-medium text-foreground">{participant.name}</span>
-                <span className="block text-[13px] text-muted-foreground">
-                  {settlement ? STATUS_TEXT[settlement.status] : "Nothing to pay"}
+            <li key={participant.id} className="px-4 py-3">
+              <div className="flex min-h-12 items-center gap-3.5">
+                <Avatar name={participant.name} seed={participant.tone} size="lg" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-base font-medium text-foreground">{participant.name}</span>
+                  <span className="block text-[13px] text-muted-foreground">
+                    {settlement ? STATUS_TEXT[settlement.status] : "Nothing to pay"}
+                  </span>
                 </span>
-              </span>
-              <MoneyText
-                cents={settlement?.amountCents ?? 0}
-                mono
-                className={cn("text-lg font-semibold", settlement ? "text-foreground" : "text-muted-foreground")}
-              />
-              {settlement === null
-                ? null
-                : actions.map((a) => (
-                <Button
-                  key={a.next}
-                  size="sm"
-                  variant={a.next === "confirmed" ? "default" : "outline"}
-                  disabled={busy}
-                  onClick={() => onStatus(settlement.id, a.next)}
-                  aria-label={`${a.label}: ${participant.name}`}
-                >
-                  {a.label}
-                </Button>
-              ))}
+                <MoneyText
+                  cents={settlement?.amountCents ?? 0}
+                  mono
+                  className={cn("text-lg font-semibold", settlement ? "text-foreground" : "text-muted-foreground")}
+                />
+              </div>
+              {settlement !== null && (canRequest || actions.length > 0) ? (
+                <div className="mt-3 flex gap-2 pl-[3.625rem]">
+                  {canRequest ? (
+                    <Button
+                      className="flex-1"
+                      disabled={busy}
+                      onClick={() => onRequest(participant.id)}
+                      aria-label={`Request: ${participant.name}`}
+                    >
+                      Request
+                    </Button>
+                  ) : null}
+                  {actions.map((a) => (
+                    <Button
+                      key={a.next}
+                      className="flex-1"
+                      variant={a.next === "confirmed" && !canRequest ? "default" : "outline"}
+                      disabled={busy}
+                      onClick={() => onStatus(settlement.id, a.next)}
+                      aria-label={`${a.label}: ${participant.name}`}
+                    >
+                      {a.label}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
             </li>
           );
         })}
