@@ -13,4 +13,9 @@ describe("safeNextPath", () => {
     }
     expect(safeNextPath("//x", "/")).toBe("/");
   });
+
+  it("keeps a bill link as next, so a host can sign in from /b/<code>", () => {
+    expect(safeNextPath("/b/abcdefghjkmn")).toBe("/b/abcdefghjkmn");
+    expect(safeNextPath(new URLSearchParams(`next=${encodeURIComponent("/b/abcdefghjkmn")}`).get("next"))).toBe("/b/abcdefghjkmn");
+  });
 });

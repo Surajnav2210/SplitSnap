@@ -36,6 +36,7 @@ import { ClaimStep } from "@/features/bill/claim/ClaimStep";
 import type { BillAction } from "@/features/bill/state";
 import { toClaimState } from "./claimState";
 import { ActionError } from "./LiveShell";
+import { HostSignIn } from "./HostSignIn";
 import { EveryoneTotals, GuestSettle, HostSettle } from "./SettleViews";
 import { ShareLinkCard } from "./ShareLinkCard";
 
@@ -43,6 +44,8 @@ interface Props {
   client: LiveClient;
   bill: LiveBill;
   viewerUserId: string;
+  /** Anonymous guest session: offer "Are you the host? Sign in" (host on a new device). */
+  viewerIsAnonymous: boolean;
   refetch: () => Promise<void>;
 }
 
@@ -52,7 +55,7 @@ function messageOf(err: unknown): string {
   throw err;
 }
 
-export function LiveBillScreen({ client, bill: snapshot, viewerUserId, refetch }: Props) {
+export function LiveBillScreen({ client, bill: snapshot, viewerUserId, viewerIsAnonymous, refetch }: Props) {
   const router = useRouter();
   const [optimistic, setOptimistic] = useState<{ base: LiveBill; bill: LiveBill } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -136,6 +139,10 @@ export function LiveBillScreen({ client, bill: snapshot, viewerUserId, refetch }
   const myTotal = view.split?.participants.find((p) => p.participantId === view.me?.id)?.total.cents ?? 0;
   const claimState = toClaimState(bill, view.host.id);
   const title = bill.merchant ?? `${hostName}’s bill`;
+  const hostSignIn =
+    view.role !== "host" && viewerIsAnonymous ? (
+      <HostSignIn client={client} shareCode={bill.shareCode} prompt="Are you the host?" action="Sign in" />
+    ) : null;
 
   if (bill.status === "locked") {
     return (
@@ -151,6 +158,7 @@ export function LiveBillScreen({ client, bill: snapshot, viewerUserId, refetch }
           ) : (
             <GuestSettle view={view} merchant={bill.merchant} busy={busy} onStatus={setStatus} />
           )}
+          {hostSignIn}
         </main>
         {view.role === "host" ? (
           <BottomBar>
@@ -198,6 +206,7 @@ export function LiveBillScreen({ client, bill: snapshot, viewerUserId, refetch }
             </Button>
           </div>
         ) : null}
+        {hostSignIn}
       </main>
       <BottomBar>
         {isHost ? (

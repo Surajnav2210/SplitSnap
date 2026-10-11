@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StepTitle } from "@/features/bill/AppShell";
 import { FieldError } from "@/features/bill/fields";
+import { HostSignIn } from "./HostSignIn";
 import { LiveBillScreen } from "./LiveBillScreen";
 import { ActionError, LiveHeader, LiveLoading, LiveMessage } from "./LiveShell";
 import { useBrowserClient } from "./useBrowserClient";
@@ -90,7 +91,8 @@ function WithClient({ client, code }: { client: LiveClient; code: string }) {
       </LiveMessage>
     );
   } else if (billId !== null && userId !== null) {
-    return <LiveBill client={client} billId={billId} userId={userId} onGone={() => setClosed(true)} />;
+    const isAnonymous = session.status === "signed-in" && session.user.isAnonymous;
+    return <LiveBill client={client} billId={billId} userId={userId} isAnonymous={isAnonymous} onGone={() => setClosed(true)} />;
   } else {
     content = (
       <JoinForm
@@ -127,6 +129,8 @@ function JoinForm({
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // A signed-in Google user who isn't on this bill can only join as a guest.
+  const canSignInAsHost = session.status !== "signed-in" || session.user.isAnonymous;
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -181,6 +185,9 @@ function JoinForm({
         <Button type="submit" size="lg" className="w-full" disabled={busy}>
           {busy ? "Joining…" : "Join"}
         </Button>
+        {canSignInAsHost ? (
+          <HostSignIn client={client} shareCode={code} prompt="Paid for this bill?" action="Sign in to manage it" />
+        ) : null}
         <p className="text-xs text-muted-foreground">
           Everyone on this bill sees the name you enter. See our <Link className="text-accent underline underline-offset-4" href="/privacy">privacy note</Link>.
         </p>
@@ -193,11 +200,13 @@ function LiveBill({
   client,
   billId,
   userId,
+  isAnonymous,
   onGone,
 }: {
   client: LiveClient;
   billId: string;
   userId: string;
+  isAnonymous: boolean;
   onGone: () => void;
 }) {
   const { state, connection, refetch } = useLiveBill(client, billId);
@@ -219,7 +228,7 @@ function LiveBill({
   } else if (state.bill.status === "draft") {
     content = <LiveMessage title="This bill isn't open yet" />;
   } else {
-    content = <LiveBillScreen client={client} bill={state.bill} viewerUserId={userId} refetch={refetch} />;
+    content = <LiveBillScreen client={client} bill={state.bill} viewerUserId={userId} viewerIsAnonymous={isAnonymous} refetch={refetch} />;
   }
   return (
     <div className="flex min-h-dvh flex-col">
