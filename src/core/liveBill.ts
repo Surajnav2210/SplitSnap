@@ -470,7 +470,8 @@ export function buildPublishPayload(input: PublishInput, clientKey: string): Pub
 // Share codes
 // ---------------------------------------------------------------------------
 
-const SHARE_CODE_RE = /^[a-km-np-z2-9]{12}$/;
+// Must match the bills_share_code_format check in the database migration.
+const SHARE_CODE_RE = /^[a-km-np-z2-9]{10}$/;
 
 /** Normalize a share code from a URL; null if it can't be a valid code. */
 export function normalizeShareCode(raw: string): string | null {
